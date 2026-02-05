@@ -26,49 +26,45 @@ struct AuthenticationView: View {
             )
             .ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: CareSphereSpacing.xl) {
-                    Spacer()
-                        .frame(height: 60)
+            VStack(spacing: CareSphereSpacing.xl) {
+                Spacer()
 
-                    // Logo and title
-                    LogoHeader()
+                // Logo and title
+                LogoHeader()
 
-                    // Sign in form card
-                    VStack(spacing: CareSphereSpacing.lg) {
-                        SignInForm(
-                            email: $email,
-                            password: $password,
-                            showPassword: $showPassword,
-                            isLoading: $isLoading,
-                            onSignIn: signIn
-                        )
+                // Sign in form card
+                VStack(spacing: CareSphereSpacing.lg) {
+                    SignInForm(
+                        email: $email,
+                        password: $password,
+                        showPassword: $showPassword,
+                        isLoading: $isLoading,
+                        onSignIn: signIn
+                    )
 
-                        // Sign up link
-                        HStack(spacing: 4) {
-                            Text("Don't have an account?")
+                    // Sign up link
+                    HStack(spacing: 4) {
+                        Text("Don't have an account?")
+                            .font(CareSphereTypography.bodyMedium)
+                            .foregroundColor(theme.colors.onSurface.opacity(0.7))
+
+                        Button(action: { showingSignUp = true }) {
+                            Text("Sign up")
                                 .font(CareSphereTypography.bodyMedium)
-                                .foregroundColor(theme.colors.onSurface.opacity(0.7))
-
-                            Button(action: { showingSignUp = true }) {
-                                Text("Sign up")
-                                    .font(CareSphereTypography.bodyMedium)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(theme.colors.primary)
-                            }
+                                .fontWeight(.semibold)
+                                .foregroundColor(theme.colors.primary)
                         }
                     }
-                    .padding(CareSphereSpacing.xl)
-                    .background(
-                        RoundedRectangle(cornerRadius: CareSphereRadius.lg)
-                            .fill(theme.colors.surface)
-                            .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
-                    )
-                    .padding(.horizontal, CareSphereSpacing.lg)
-
-                    Spacer()
-                        .frame(height: 60)
                 }
+                .padding(CareSphereSpacing.xl)
+                .background(
+                    RoundedRectangle(cornerRadius: CareSphereRadius.lg)
+                        .fill(theme.colors.surface)
+                        .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
+                )
+                .padding(.horizontal, CareSphereSpacing.lg)
+
+                Spacer()
             }
         }
         .sheet(isPresented: $showingSignUp) {
@@ -87,12 +83,12 @@ struct AuthenticationView: View {
         Task {
             isLoading = true
             let success = await authService.login(email: email, password: password)
-            
+
             if !success, let error = authService.error {
                 errorMessage = error.localizedDescription
                 showingError = true
             }
-            
+
             isLoading = false
         }
     }

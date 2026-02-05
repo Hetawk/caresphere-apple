@@ -22,50 +22,39 @@ struct TemplatesView: View {
     }
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                LazyVStack(spacing: CareSphereSpacing.md) {
-                    // Category filter
-                    categoryFilterSection
+        ScrollView {
+            LazyVStack(spacing: CareSphereSpacing.md) {
+                // Category filter
+                categoryFilterSection
 
-                    // Templates list
-                    if isLoading {
-                        loadingState
-                    } else if filteredTemplates.isEmpty {
-                        emptyState
-                    } else {
-                        templatesListSection
-                    }
-                }
-                .padding(.horizontal, CareSphereSpacing.lg)
-                .padding(.top, CareSphereSpacing.sm)
-                .padding(.bottom, CareSphereSpacing.md)
-            }
-            .background(theme.colors.background)
-            .searchable(text: $searchText, prompt: "Search templates...")
-            .navigationTitle("Templates")
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbarBackground(theme.colors.surface, for: .navigationBar)
-                .toolbarBackground(.visible, for: .navigationBar)
-                .toolbarColorScheme(
-                    theme.currentColorScheme == .dark ? .dark : .light, for: .navigationBar)
-            #endif
-            .refreshable {
-                await loadTemplates()
-            }
-            .task {
-                if messageService.templates.isEmpty {
-                    await loadTemplatesWithTimeout()
+                // Templates list
+                if isLoading {
+                    loadingState
+                } else if filteredTemplates.isEmpty {
+                    emptyState
+                } else {
+                    templatesListSection
                 }
             }
-            .sheet(item: $showingTemplateDetail) { template in
-                TemplateDetailView(template: template)
-                    .environmentObject(theme)
-                    .environmentObject(messageService)
+            .padding(.horizontal, CareSphereSpacing.lg)
+            .padding(.top, CareSphereSpacing.sm)
+            .padding(.bottom, CareSphereSpacing.md)
+        }
+        .background(theme.colors.background)
+        .searchable(text: $searchText, prompt: "Search templates...")
+        .refreshable {
+            await loadTemplates()
+        }
+        .task {
+            if messageService.templates.isEmpty {
+                await loadTemplatesWithTimeout()
             }
         }
-        .navigationViewStyle(.stack)
+        .sheet(item: $showingTemplateDetail) { template in
+            TemplateDetailView(template: template)
+                .environmentObject(theme)
+                .environmentObject(messageService)
+        }
     }
 
     private func loadTemplatesWithTimeout() async {

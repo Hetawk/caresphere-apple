@@ -68,6 +68,12 @@ caresphere-apple/
 
 ## Development
 
+```bash
+TestMail: admin@jinanicf.com
+TestPWD: admin123
+
+```
+
 ### Design System Usage
 
 ```swift

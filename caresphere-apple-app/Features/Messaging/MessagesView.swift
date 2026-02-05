@@ -9,22 +9,25 @@ struct MessagesView: View {
 
     var body: some View {
         NavigationView {
-            TabView(selection: $selectedTab) {
-                // Messages Tab
-                messagesListTab
-                    .tag(0)
-                    .tabItem {
-                        Label("Messages", systemImage: "envelope")
-                    }
+            VStack(spacing: 0) {
+                // Segment control for switching
+                Picker("View", selection: $selectedTab) {
+                    Text("Messages").tag(0)
+                    Text("Templates").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, CareSphereSpacing.lg)
+                .padding(.vertical, CareSphereSpacing.sm)
+                .background(theme.colors.surface)
 
-                // Templates Tab
-                TemplatesView()
-                    .tag(1)
-                    .tabItem {
-                        Label("Templates", systemImage: "doc.text")
-                    }
+                // Content
+                if selectedTab == 0 {
+                    messagesListTab
+                } else {
+                    TemplatesView()
+                }
             }
-            .navigationTitle(selectedTab == 0 ? "Messages" : "Templates")
+            .navigationTitle("Messaging")
             #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(theme.colors.surface, for: .navigationBar)

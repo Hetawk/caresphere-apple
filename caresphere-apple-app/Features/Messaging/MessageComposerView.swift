@@ -19,6 +19,7 @@ struct MessageComposerView: View {
     @State private var priority: MessagePriority = .normal
     @State private var showingTemplateSelector = false
     @State private var showingMemberSelector = false
+    @State private var showTemplateSection = false
     @State private var isSending = false
     @State private var showError = false
     @State private var errorMessage = ""
@@ -30,11 +31,8 @@ struct MessageComposerView: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(alignment: .leading, spacing: CareSphereSpacing.lg) {
-                    // Template selection
-                    templateSection
-
-                    // Channel selection
+                VStack(alignment: .leading, spacing: CareSphereSpacing.md) {
+                    // Channel selection (moved to top)
                     channelSection
 
                     // Recipients
@@ -45,13 +43,30 @@ struct MessageComposerView: View {
                         subjectSection
                     }
 
-                    // Content
+                    // Content (larger area)
                     contentSection
 
-                    // Priority
-                    prioritySection
+                    // Template selection (optional, collapsed by default)
+                    if showTemplateSection {
+                        templateSection
+                    } else {
+                        Button {
+                            showTemplateSection = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "doc.text")
+                                Text("Use Template (Optional)")
+                                Spacer()
+                                Image(systemName: "chevron.down")
+                            }
+                            .foregroundColor(theme.colors.primary)
+                            .padding(CareSphereSpacing.md)
+                            .background(theme.colors.surface)
+                            .cornerRadius(CareSphereRadius.md)
+                        }
+                    }
                 }
-                .padding(CareSphereSpacing.lg)
+                .padding(CareSphereSpacing.md)
             }
             .background(theme.colors.background)
             .navigationTitle("Compose Message")
@@ -98,10 +113,24 @@ struct MessageComposerView: View {
 
     private var templateSection: some View {
         CareSphereCard {
-            VStack(alignment: .leading, spacing: CareSphereSpacing.md) {
-                Text("Template")
-                    .font(CareSphereTypography.titleSmall)
-                    .foregroundColor(theme.colors.onBackground)
+            VStack(alignment: .leading, spacing: CareSphereSpacing.sm) {
+                HStack {
+                    Text("Template")
+                        .font(CareSphereTypography.titleSmall)
+                        .foregroundColor(theme.colors.onBackground)
+
+                    Spacer()
+
+                    Button {
+                        withAnimation {
+                            showTemplateSection = false
+                            templateId = nil
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(theme.colors.onSurface.opacity(0.5))
+                    }
+                }
 
                 if let template = selectedTemplate {
                     HStack {
@@ -123,30 +152,26 @@ struct MessageComposerView: View {
                         .buttonStyle(CareSphereButtonStyle.secondary)
                     }
                 } else {
-                    Button("Select Template (Optional)") {
+                    Button("Select Template") {
                         showingTemplateSelector = true
                     }
                     .buttonStyle(CareSphereButtonStyle.secondary)
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
     }
 
     private var channelSection: some View {
-        CareSphereCard {
-            VStack(alignment: .leading, spacing: CareSphereSpacing.md) {
-                Text("Channel")
-                    .font(CareSphereTypography.titleSmall)
-                    .foregroundColor(theme.colors.onBackground)
-
-                HStack(spacing: CareSphereSpacing.sm) {
-                    channelButton(.email, icon: "envelope.fill", label: "Email")
-                    channelButton(.sms, icon: "message.fill", label: "SMS")
-                    channelButton(
-                        .whatsapp, icon: "bubble.left.and.bubble.right.fill", label: "WhatsApp")
-                }
+        VStack(alignment: .leading, spacing: CareSphereSpacing.sm) {
+            HStack(spacing: CareSphereSpacing.sm) {
+                channelButton(.email, icon: "envelope.fill", label: "Email")
+                channelButton(.sms, icon: "message.fill", label: "SMS")
+                channelButton(
+                    .whatsapp, icon: "bubble.left.and.bubble.right.fill", label: "WhatsApp")
             }
         }
+        .padding(.horizontal, 2)
     }
 
     private func channelButton(_ channel: MessageChannel, icon: String, label: String) -> some View
@@ -156,20 +181,20 @@ struct MessageComposerView: View {
         } label: {
             VStack(spacing: CareSphereSpacing.xs) {
                 Image(systemName: icon)
-                    .font(.title3)
+                    .font(.system(size: 24))
                 Text(label)
-                    .font(CareSphereTypography.labelSmall)
+                    .font(CareSphereTypography.labelMedium)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, CareSphereSpacing.sm)
+            .padding(.vertical, CareSphereSpacing.md)
             .background(
                 selectedChannel == channel
-                    ? theme.colors.primary.opacity(0.1)
+                    ? theme.colors.primary
                     : theme.colors.surface
             )
             .foregroundColor(
                 selectedChannel == channel
-                    ? theme.colors.primary
+                    ? .white
                     : theme.colors.onSurface.opacity(0.7)
             )
             .cornerRadius(CareSphereRadius.md)
@@ -182,43 +207,61 @@ struct MessageComposerView: View {
                         lineWidth: selectedChannel == channel ? 2 : 1
                     )
             )
+            .shadow(
+                color: selectedChannel == channel
+                    ? theme.colors.primary.opacity(0.3)
+                    : .clear,
+                radius: 4,
+                x: 0,
+                y: 2
+            )
         }
     }
 
     private var recipientsSection: some View {
-        CareSphereCard {
-            VStack(alignment: .leading, spacing: CareSphereSpacing.md) {
-                HStack {
+        Button {
+            showingMemberSelector = true
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Recipients")
                         .font(CareSphereTypography.titleSmall)
                         .foregroundColor(theme.colors.onBackground)
 
-                    Spacer()
-
-                    Text("\(selectedMembers.count) selected")
-                        .font(CareSphereTypography.labelSmall)
-                        .foregroundColor(theme.colors.onSurface.opacity(0.6))
+                    Text(
+                        selectedMembers.isEmpty
+                            ? "Tap to select members" : "\(selectedMembers.count) selected"
+                    )
+                    .font(CareSphereTypography.bodySmall)
+                    .foregroundColor(theme.colors.onSurface.opacity(0.6))
                 }
 
-                Button("Select Members") {
-                    showingMemberSelector = true
-                }
-                .buttonStyle(CareSphereButtonStyle.secondary)
-                .frame(maxWidth: .infinity)
+                Spacer()
+
+                Image(systemName: selectedMembers.isEmpty ? "person.badge.plus" : "person.2.fill")
+                    .font(.title3)
+                    .foregroundColor(theme.colors.primary)
             }
+            .padding(CareSphereSpacing.md)
+            .background(theme.colors.surface)
+            .cornerRadius(CareSphereRadius.md)
+            .overlay(
+                RoundedRectangle(cornerRadius: CareSphereRadius.md)
+                    .stroke(
+                        selectedMembers.isEmpty
+                            ? theme.colors.onSurface.opacity(0.2)
+                            : theme.colors.primary.opacity(0.3),
+                        lineWidth: 1
+                    )
+            )
         }
     }
 
     private var subjectSection: some View {
-        CareSphereCard {
-            VStack(alignment: .leading, spacing: CareSphereSpacing.sm) {
-                Text("Subject")
-                    .font(CareSphereTypography.titleSmall)
-                    .foregroundColor(theme.colors.onBackground)
-
-                TextField("Enter subject", text: $subject)
-                    .textFieldStyle(CareSphereTextFieldStyle())
-            }
+        VStack(alignment: .leading, spacing: CareSphereSpacing.sm) {
+            TextField("Email Subject", text: $subject)
+                .textFieldStyle(CareSphereTextFieldStyle())
+                .padding(.horizontal, 2)
         }
     }
 
@@ -230,7 +273,7 @@ struct MessageComposerView: View {
                     .foregroundColor(theme.colors.onBackground)
 
                 TextEditor(text: $content)
-                    .frame(minHeight: 200)
+                    .frame(minHeight: 250)
                     .padding(CareSphereSpacing.sm)
                     .background(theme.colors.surface)
                     .cornerRadius(CareSphereRadius.md)
@@ -238,24 +281,17 @@ struct MessageComposerView: View {
                         RoundedRectangle(cornerRadius: CareSphereRadius.md)
                             .stroke(theme.colors.onSurface.opacity(0.2), lineWidth: 1)
                     )
-            }
-        }
-    }
-
-    private var prioritySection: some View {
-        CareSphereCard {
-            VStack(alignment: .leading, spacing: CareSphereSpacing.md) {
-                Text("Priority")
-                    .font(CareSphereTypography.titleSmall)
-                    .foregroundColor(theme.colors.onBackground)
-
-                Picker("Priority", selection: $priority) {
-                    Text("Low").tag(MessagePriority.low)
-                    Text("Normal").tag(MessagePriority.normal)
-                    Text("High").tag(MessagePriority.high)
-                    Text("Urgent").tag(MessagePriority.urgent)
-                }
-                .pickerStyle(SegmentedPickerStyle())
+                    .overlay(
+                        Group {
+                            if content.isEmpty {
+                                Text("Type your message here...")
+                                    .foregroundColor(theme.colors.onSurface.opacity(0.4))
+                                    .padding(CareSphereSpacing.md)
+                                    .allowsHitTesting(false)
+                            }
+                        },
+                        alignment: .topLeading
+                    )
             }
         }
     }
@@ -264,6 +300,7 @@ struct MessageComposerView: View {
         templateId = template.id
         subject = template.subject ?? ""
         content = template.content
+        showTemplateSection = true
 
         // Set default channel if template supports only one
         if template.supportedChannels.count == 1,

@@ -605,8 +605,10 @@ class MessageService: ObservableObject {
     func createMessage(_ request: CreateMessageRequest) async throws -> Message {
         try authService.requiresPermission(\.sendMessages)
 
+        // Note: Backend uses /messages/send for direct sending
+        // This method now sends the message immediately
         let message: Message = try await networkClient.request<Message>(
-            endpoint: Endpoints.Messages.create,
+            endpoint: Endpoints.Messages.send,
             method: .POST,
             body: request
         )
@@ -620,12 +622,15 @@ class MessageService: ObservableObject {
     }
 
     func sendMessage(id: String) async throws -> Message {
+        // Note: Backend doesn't have a separate send endpoint
+        // Messages are sent when created via /messages/send
+        // This method fetches the message details for backward compatibility
         try authService.requiresPermission(\.sendMessages)
 
         let message: Message =
             try await networkClient.request<Message>(
-                endpoint: Endpoints.Messages.send(id: id),
-                method: .POST
+                endpoint: Endpoints.Messages.get(id: id),
+                method: .GET
             )
 
         // Update local list
@@ -634,14 +639,6 @@ class MessageService: ObservableObject {
         }
 
         return message
-    }
-
-    func getMessageAnalytics(id: String) async throws -> MessageAnalytics {
-        try authService.requiresPermission(\.viewAnalytics)
-
-        return try await networkClient.request<MessageAnalytics>(
-            endpoint: Endpoints.Messages.analytics(id: id)
-        )
     }
 
     // MARK: - Template Operations

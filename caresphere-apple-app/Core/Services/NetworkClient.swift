@@ -502,22 +502,16 @@ enum Endpoints {
     // Messages
     enum Messages: APIEndpoint {
         case list
-        case create
+        case send  // Direct send (POST /messages/send)
         case get(id: String)
-        case update(id: String)
         case delete(id: String)
-        case send(id: String)
-        case analytics(id: String)
 
         var path: String {
             switch self {
             case .list: return "/messages"
-            case .create: return "/messages"
+            case .send: return "/messages/send"  // Updated to match backend
             case .get(let id): return "/messages/\(id)"
-            case .update(let id): return "/messages/\(id)"
             case .delete(let id): return "/messages/\(id)"
-            case .send(let id): return "/messages/\(id)/send"
-            case .analytics(let id): return "/messages/\(id)/analytics"
             }
         }
     }
