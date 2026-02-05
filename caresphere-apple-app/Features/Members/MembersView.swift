@@ -8,6 +8,9 @@ struct MembersView: View {
     @State private var searchText = ""
     @State private var selectedMember: Member?
     @State private var showingAddMember = false
+    @State private var showingImportCSV = false
+    @State private var importResult: String?
+    @State private var showingImportResult = false
 
     var body: some View {
         NavigationView {
@@ -64,14 +67,37 @@ struct MembersView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Add") {
-                        showingAddMember = true
+                    Menu {
+                        Button(action: { showingAddMember = true }) {
+                            Label("Add Member", systemImage: "person.badge.plus")
+                        }
+                        Button(action: { showingImportCSV = true }) {
+                            Label("Import CSV", systemImage: "doc.badge.arrow.up")
+                        }
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title3)
+                            .foregroundColor(theme.colors.primary)
                     }
-                    .buttonStyle(CareSphereButtonStyle.tertiary)
                 }
             }
             .sheet(isPresented: $showingAddMember) {
                 AddMemberView()
+            }
+            .sheet(isPresented: $showingImportCSV) {
+                CSVImportView(onImportComplete: { result in
+                    importResult = result
+                    showingImportResult = true
+                    // Reload members after import
+                    Task {
+                        try? await memberService.loadMembers()
+                    }
+                })
+            }
+            .alert("Import Complete", isPresented: $showingImportResult) {
+                Button("OK") {}
+            } message: {
+                Text(importResult ?? "")
             }
             .sheet(item: $selectedMember) { member in
                 MemberDetailView(member: member)

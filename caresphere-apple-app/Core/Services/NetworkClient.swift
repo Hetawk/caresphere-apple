@@ -615,6 +615,17 @@ enum Endpoints {
         }
     }
 
+    // Bulk Operations
+    enum Bulk: APIEndpoint {
+        case importMembers
+
+        var path: String {
+            switch self {
+            case .importMembers: return "/bulk/members/import"
+            }
+        }
+    }
+
     // Field Configurations
     enum Fields: APIEndpoint {
         case configs(entityType: String?)

@@ -451,3 +451,16 @@ extension Member {
         createdBy: "preview-user-id"
     )
 }
+// MARK: - Bulk Import Models
+
+/// Result of a bulk member import operation
+struct BulkImportResult: Codable {
+    let successCount: Int
+    let failureCount: Int
+    let errors: [ImportError]
+    
+    struct ImportError: Codable {
+        let row: Int
+        let message: String
+    }
+}

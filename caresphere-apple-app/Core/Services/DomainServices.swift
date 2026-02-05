@@ -484,6 +484,30 @@ class MemberService: ObservableObject {
         }
     }
 
+    /// Import members from CSV file
+    func importMembersFromCSV(csvContent: String) async throws -> BulkImportResult {
+        try authService.requiresPermission(\.manageMembers)
+
+        struct ImportRequest: Codable {
+            let csvContent: String
+        }
+
+        let request = ImportRequest(csvContent: csvContent)
+
+        let result: BulkImportResult = try await networkClient.request<BulkImportResult>(
+            endpoint: Endpoints.Bulk.importMembers,
+            method: .POST,
+            body: request
+        )
+
+        // Reload members after successful import
+        if result.successCount > 0 {
+            try? await loadMembers()
+        }
+
+        return result
+    }
+
     // MARK: - Member Notes and Activities
 
     func loadMemberNotes(memberId: String) async throws -> [MemberNote] {
