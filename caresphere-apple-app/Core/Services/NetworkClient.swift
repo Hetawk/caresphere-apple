@@ -451,6 +451,7 @@ enum Endpoints {
     enum Auth: APIEndpoint {
         case login
         case register
+        case registerWithOrganization
         case refresh
         case logout
         case profile
@@ -463,6 +464,7 @@ enum Endpoints {
             switch self {
             case .login: return "/auth/login"
             case .register: return "/auth/register"
+            case .registerWithOrganization: return "/auth/register-with-organization"
             case .refresh: return "/auth/refresh"
             case .logout: return "/auth/logout"
             case .profile: return "/auth/profile"
@@ -470,6 +472,23 @@ enum Endpoints {
             case .forgotPassword: return "/auth/forgot-password"
             case .resetPassword: return "/auth/reset-password"
             case .verifyEmail: return "/auth/verify-email"
+            }
+        }
+    }
+
+    // Organizations
+    enum Organizations: APIEndpoint {
+        case myOrganization
+        case create
+        case join
+        case regenerateCode
+
+        var path: String {
+            switch self {
+            case .myOrganization: return "/organizations/my-organization"
+            case .create: return "/organizations/create"
+            case .join: return "/organizations/join"
+            case .regenerateCode: return "/organizations/regenerate-code"
             }
         }
     }

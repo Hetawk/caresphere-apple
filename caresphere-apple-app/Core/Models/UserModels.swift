@@ -191,11 +191,45 @@ struct Organization: Codable, Identifiable, Equatable {
     let website: String?
     let primaryColor: String?
     let secondaryColor: String?
+    let organizationCode: String?  // 7-digit code for joining (visible to admins only)
     let settings: OrganizationSettings
     let subscription: SubscriptionPlan
     let isActive: Bool
     let createdAt: Date
     let updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, slug, description, website, settings, subscription
+        case logoURL = "logo_url"
+        case primaryColor = "primary_color"
+        case secondaryColor = "secondary_color"
+        case organizationCode = "organization_code"
+        case isActive = "is_active"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+/// Organization creation request
+struct CreateOrganizationRequest: Codable {
+    let name: String
+    let description: String?
+}
+
+/// Join organization request with 7-digit code
+struct JoinOrganizationRequest: Codable {
+    let organizationCode: String
+
+    enum CodingKeys: String, CodingKey {
+        case organizationCode = "organization_code"
+    }
+}
+
+/// Organization onboarding option
+enum OrganizationOption: String, Codable {
+    case create = "create"
+    case join = "join"
+    case skip = "skip"
 }
 
 /// Organization-specific settings and preferences
@@ -315,6 +349,25 @@ struct RegisterRequest: Codable {
     let password: String
     let fullName: String
     let displayName: String?
+}
+
+/// Registration request with organization onboarding
+struct RegisterWithOrganizationRequest: Codable {
+    let email: String
+    let password: String
+    let fullName: String
+    let displayName: String?
+    let action: OrganizationOption
+    let organizationName: String?
+    let organizationCode: String?
+
+    enum CodingKeys: String, CodingKey {
+        case email, password, action
+        case fullName = "full_name"
+        case displayName = "display_name"
+        case organizationName = "organization_name"
+        case organizationCode = "organization_code"
+    }
 }
 
 struct RefreshTokenRequest: Codable {

@@ -139,6 +139,55 @@ class AuthenticationService: ObservableObject {
         }
     }
 
+    func registerWithOrganization(
+        email: String,
+        password: String,
+        fullName: String,
+        displayName: String? = nil,
+        action: OrganizationOption,
+        organizationName: String? = nil,
+        organizationCode: String? = nil
+    ) async -> Bool {
+        isLoading = true
+        error = nil
+
+        do {
+            let request = RegisterWithOrganizationRequest(
+                email: email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines),
+                password: password,
+                fullName: fullName.trimmingCharacters(in: .whitespacesAndNewlines),
+                displayName: displayName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                action: action,
+                organizationName: organizationName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                organizationCode: organizationCode?.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+
+            let response: LoginResponse = try await networkClient.request(
+                endpoint: Endpoints.Auth.registerWithOrganization,
+                method: .POST,
+                body: request
+            )
+
+            // Store authentication tokens
+            networkClient.setAuthToken(response.accessToken, refreshToken: response.refreshToken)
+
+            // Set current user
+            currentUser = response.user
+
+            isLoading = false
+            return true
+
+        } catch let apiError as APIError {
+            self.error = apiError
+            isLoading = false
+            return false
+        } catch {
+            self.error = .serverError(statusCode: 0, message: error.localizedDescription)
+            isLoading = false
+            return false
+        }
+    }
+
     func logout() async {
         isLoading = true
         defer { isLoading = false }
@@ -1223,6 +1272,167 @@ class FieldConfigService: ObservableObject {
         Task { @MainActor in
             // Add preview data if needed
         }
+        return service
+    }()
+}
+
+// MARK: - ════════════════════════════════════════════════════════════
+// MARK: - 7️⃣ Organization Service
+// MARK: - ════════════════════════════════════════════════════════════
+
+/// Service for managing organization membership and codes
+@MainActor
+class OrganizationService: ObservableObject {
+    @MainActor static let shared = OrganizationService()
+
+    @Published var currentOrganization: Organization?
+    @Published var isLoading = false
+    @Published var error: APIError?
+
+    private let networkClient: NetworkClient
+    private let authService: AuthenticationService
+
+    private init() {
+        self.networkClient = NetworkClient.shared
+        self.authService = AuthenticationService.shared
+    }
+
+    // MARK: - Organization Operations
+
+    /// Get the current user's organization
+    func loadMyOrganization() async throws -> Organization? {
+        guard authService.isAuthenticated else {
+            return nil
+        }
+
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+
+        do {
+            let org: Organization = try await networkClient.request(
+                endpoint: Endpoints.Organizations.myOrganization
+            )
+            currentOrganization = org
+            return org
+        } catch let apiError as APIError {
+            // Handle not found (user may not be in an organization yet)
+            if case .serverError(let code, _) = apiError, code == 404 {
+                currentOrganization = nil
+                return nil
+            }
+            self.error = apiError
+            throw apiError
+        } catch {
+            let apiError = APIError.unknown(error)
+            self.error = apiError
+            throw apiError
+        }
+    }
+
+    /// Create a new organization
+    func createOrganization(name: String, description: String? = nil) async throws -> Organization {
+        try authService.requiresPermission(\.manageOrganization)
+
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+
+        let request = CreateOrganizationRequest(
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            description: description?.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+
+        do {
+            let org: Organization = try await networkClient.request(
+                endpoint: Endpoints.Organizations.create,
+                method: .POST,
+                body: request
+            )
+            currentOrganization = org
+            return org
+        } catch let apiError as APIError {
+            self.error = apiError
+            throw apiError
+        } catch {
+            let apiError = APIError.unknown(error)
+            self.error = apiError
+            throw apiError
+        }
+    }
+
+    /// Join an organization using a 7-digit code
+    func joinOrganization(code: String) async throws -> Organization {
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+
+        let request = JoinOrganizationRequest(
+            organizationCode: code.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+
+        do {
+            let org: Organization = try await networkClient.request(
+                endpoint: Endpoints.Organizations.join,
+                method: .POST,
+                body: request
+            )
+            currentOrganization = org
+            return org
+        } catch let apiError as APIError {
+            self.error = apiError
+            throw apiError
+        } catch {
+            let apiError = APIError.unknown(error)
+            self.error = apiError
+            throw apiError
+        }
+    }
+
+    /// Regenerate organization code (admin only)
+    func regenerateCode(reason: String? = nil) async throws -> Organization {
+        try authService.requiresPermission(\.manageOrganization)
+
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+
+        struct RegenerateRequest: Codable {
+            let reason: String?
+        }
+
+        let request = RegenerateRequest(reason: reason)
+
+        do {
+            let org: Organization = try await networkClient.request(
+                endpoint: Endpoints.Organizations.regenerateCode,
+                method: .POST,
+                body: request
+            )
+            currentOrganization = org
+            return org
+        } catch let apiError as APIError {
+            self.error = apiError
+            throw apiError
+        } catch {
+            let apiError = APIError.unknown(error)
+            self.error = apiError
+            throw apiError
+        }
+    }
+
+    // MARK: - Validation
+
+    /// Validate organization code format (7 digits)
+    func isValidCode(_ code: String) -> Bool {
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.count == 7 && trimmed.allSatisfy { $0.isNumber }
+    }
+
+    // MARK: - Preview Extension
+
+    static let preview: OrganizationService = {
+        let service = OrganizationService.shared
         return service
     }()
 }

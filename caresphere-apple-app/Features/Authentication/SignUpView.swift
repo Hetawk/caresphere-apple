@@ -15,6 +15,8 @@ struct SignUpView: View {
     @State private var isLoading = false
     @State private var errorMessage = ""
     @State private var showingError = false
+    @State private var showingOrganizationOnboarding = false
+    @State private var registrationData: (String, String, String)?  // email, password, fullName
 
     var body: some View {
         ZStack {
@@ -53,7 +55,7 @@ struct SignUpView: View {
                         showConfirmPassword: $showConfirmPassword,
                         isLoading: $isLoading,
                         isFormValid: isFormValid,
-                        onSignUp: signUp
+                        onSignUp: proceedToOrganizationSetup
                     )
                 }
                 .padding(.bottom, CareSphereSpacing.xl)
@@ -73,6 +75,17 @@ struct SignUpView: View {
                 Spacer()
             }
         }
+        .sheet(isPresented: $showingOrganizationOnboarding) {
+            OrganizationOnboardingView { option, organizationName, organizationCode in
+                showingOrganizationOnboarding = false
+                completeRegistration(
+                    action: option,
+                    organizationName: organizationName,
+                    organizationCode: organizationCode
+                )
+            }
+            .environmentObject(theme)
+        }
         .alert("Registration Error", isPresented: $showingError) {
             Button("OK") {}
         } message: {
@@ -85,23 +98,46 @@ struct SignUpView: View {
             && password.count >= 8
     }
 
-    private func signUp() {
+    private func proceedToOrganizationSetup() {
         guard isFormValid else { return }
+
+        // Store registration data for later use
+        registrationData = (email, password, fullName)
+
+        // Show organization onboarding
+        showingOrganizationOnboarding = true
+    }
+
+    private func completeRegistration(
+        action: OrganizationOption,
+        organizationName: String?,
+        organizationCode: String?
+    ) {
+        guard let (email, password, fullName) = registrationData else {
+            errorMessage = "Registration data lost. Please try again."
+            showingError = true
+            return
+        }
 
         Task {
             isLoading = true
-            do {
-                _ = await authService.register(
-                    email: email,
-                    password: password,
-                    fullName: fullName
-                )
+            defer { isLoading = false }
+
+            let success = await authService.registerWithOrganization(
+                email: email,
+                password: password,
+                fullName: fullName,
+                action: action,
+                organizationName: organizationName,
+                organizationCode: organizationCode
+            )
+
+            if success {
                 dismiss()
-            } catch {
-                errorMessage = error.localizedDescription
+            } else if let error = authService.error {
+                errorMessage = error.errorDescription ?? "Registration failed"
                 showingError = true
             }
-            isLoading = false
         }
     }
 }
