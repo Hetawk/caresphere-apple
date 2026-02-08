@@ -19,6 +19,10 @@ struct SignUpView: View {
     @State private var showingOrganizationOnboarding = false
     @State private var registrationData: (String, String, String)?  // email, password, fullName
     @State private var verificationCode = ""
+    @State private var infoMessage = ""
+    @State private var showingInfo = false
+    @State private var infoMessage = ""
+    @State private var showingInfo = false
 
     var body: some View {
         ZStack {
@@ -108,6 +112,11 @@ struct SignUpView: View {
         } message: {
             Text(errorMessage)
         }
+        .alert("Information", isPresented: $showingInfo) {
+            Button("OK") {}
+        } message: {
+            Text(infoMessage)
+        }
     }
 
     private var isFormValid: Bool {
@@ -140,11 +149,20 @@ struct SignUpView: View {
             let success = await authService.sendVerificationCode(email: email)
             if success {
                 print("[SIGNUP] ✅ Verification code sent, showing input view")
-                showingVerificationCode = true
+                await MainActor.run {
+                    showingVerificationCode = true
+                }
             } else if let error = authService.error {
                 let errorMsg = error.errorDescription ?? "Failed to send verification code"
-                print("[SIGNUP] ❌ Error: \\(errorMsg)")
-                errorMessage = errorMsg
+                print("[SIGNUP] ❌ Error: \(errorMsg)")
+
+                // Check if this is an "already registered" error
+                if errorMsg.lowercased().contains("already registered") {
+                    errorMessage =
+                        "This email is already registered. Please login instead, or use a different email."
+                } else {
+                    errorMessage = errorMsg
+                }
                 showingError = true
             }
         }
