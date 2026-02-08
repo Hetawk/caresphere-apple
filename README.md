@@ -119,7 +119,7 @@ CareSphereCard { /* content */ }
 </p>
 
 
-##
+## Build and lunch
 ```bash
 cd swift/caresphere-apple
 xcodebuild -scheme caresphere-apple -configuration Debug \

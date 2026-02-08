@@ -71,12 +71,12 @@ struct AuthenticationView: View {
         }
         .sheet(isPresented: $showingSignUp) {
             SignUpView()
-        }sheet(isPresented: $showingForgotPassword) {
+        }
+        .sheet(isPresented: $showingForgotPassword) {
             ForgotPasswordView()
                 .environmentObject(authService)
                 .environmentObject(theme)
         }
-        .
         .alert("Sign In Error", isPresented: $showingError) {
             Button("OK") {}
         } message: {
@@ -131,13 +131,13 @@ struct LogoHeader: View {
 struct SignInForm: View {
     @EnvironmentObject private var theme: CareSphereTheme
 
-    @Binding var email: Stri
-    let onForgotPassword: () -> Voidng
+    @Binding var email: String
     @Binding var password: String
     @Binding var showPassword: Bool
     @Binding var isLoading: Bool
 
     let onSignIn: () -> Void
+    let onForgotPassword: () -> Void
 
     var body: some View {
         VStack(spacing: CareSphereSpacing.lg) {

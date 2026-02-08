@@ -284,6 +284,6 @@ struct ResetPasswordView: View {
 
 #Preview {
     ResetPasswordView(email: "user@example.com")
-        .environmentObject(AuthenticationService())
-        .environmentObject(CareSphereTheme())
+        .environmentObject(AuthenticationService.shared)
+        .environmentObject(CareSphereTheme.shared)
 }

@@ -167,6 +167,6 @@ struct ForgotPasswordView: View {
 
 #Preview {
     ForgotPasswordView()
-        .environmentObject(AuthenticationService())
-        .environmentObject(CareSphereTheme())
+        .environmentObject(AuthenticationService.shared)
+        .environmentObject(CareSphereTheme.shared)
 }
