@@ -195,24 +195,38 @@ class AuthenticationService: ObservableObject {
         error = nil
 
         do {
+            // Validate email format
+            let trimmedEmail = email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmedEmail.contains("@"), trimmedEmail.contains(".") else {
+                self.error = .serverError(
+                    statusCode: 400, message: "Please enter a valid email address")
+                isLoading = false
+                return false
+            }
+
             let request = SendVerificationCodeRequest(
-                email: email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+                email: trimmedEmail
             )
 
+            print("[AUTH] Sending verification code to: \(trimmedEmail)")
             let _: MessageResponse = try await networkClient.request(
                 endpoint: Endpoints.Auth.sendVerificationCode,
                 method: .POST,
                 body: request
             )
+            print("[AUTH] ✅ Verification code sent successfully")
 
             isLoading = false
             return true
 
         } catch let apiError as APIError {
+            print(
+                "[AUTH] ❌ Verification code error: \(apiError.errorDescription ?? "Unknown error")")
             self.error = apiError
             isLoading = false
             return false
         } catch {
+            print("[AUTH] ❌ Unexpected error: \(error.localizedDescription)")
             self.error = .serverError(statusCode: 0, message: error.localizedDescription)
             isLoading = false
             return false

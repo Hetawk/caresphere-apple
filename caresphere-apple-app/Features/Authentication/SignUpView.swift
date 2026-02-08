@@ -118,8 +118,19 @@ struct SignUpView: View {
     private func proceedToOrganizationSetup() {
         guard isFormValid else { return }
 
+        // Validate email format
+        let emailPattern = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailPattern)
+        guard emailPredicate.evaluate(with: email) else {
+            errorMessage = "Please enter a valid email address"
+            showingError = true
+            return
+        }
+
         // Store registration data for later use
         registrationData = (email, password, fullName)
+
+        print("[SIGNUP] Initiating verification for: \\(email)")
 
         // Send verification code and show verification view
         Task {
@@ -128,9 +139,12 @@ struct SignUpView: View {
 
             let success = await authService.sendVerificationCode(email: email)
             if success {
+                print("[SIGNUP] ✅ Verification code sent, showing input view")
                 showingVerificationCode = true
             } else if let error = authService.error {
-                errorMessage = error.errorDescription ?? "Failed to send verification code"
+                let errorMsg = error.errorDescription ?? "Failed to send verification code"
+                print("[SIGNUP] ❌ Error: \\(errorMsg)")
+                errorMessage = errorMsg
                 showingError = true
             }
         }
@@ -161,6 +175,9 @@ struct SignUpView: View {
             return
         }
 
+        print("[SIGNUP] Completing registration for: \\(email)")
+        print("[SIGNUP] Organization action: \\(action)")
+
         Task {
             isLoading = true
             defer { isLoading = false }
@@ -176,9 +193,12 @@ struct SignUpView: View {
             )
 
             if success {
+                print("[SIGNUP] ✅ Registration completed successfully")
                 dismiss()
             } else if let error = authService.error {
-                errorMessage = error.errorDescription ?? "Registration failed"
+                let errorMsg = error.errorDescription ?? "Registration failed"
+                print("[SIGNUP] ❌ Registration failed: \\(errorMsg)")
+                errorMessage = errorMsg
                 showingError = true
             }
         }
