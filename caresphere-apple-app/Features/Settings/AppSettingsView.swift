@@ -4,17 +4,17 @@ import SwiftUI
 struct AppSettingsView: View {
     @EnvironmentObject private var authService: AuthenticationService
     @EnvironmentObject private var theme: CareSphereTheme
-    
+
     @State private var showingSenderSettings = false
     @State private var showingProfile = false
     @State private var showingLogoutConfirmation = false
-    
+
     private var rowBackgroundColor: Color {
         theme.currentColorScheme == .dark
             ? theme.colors.surface.opacity(0.98)
             : theme.colors.surface
     }
-    
+
     private func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
             .font(CareSphereTypography.labelSmall)
@@ -22,7 +22,7 @@ struct AppSettingsView: View {
             .foregroundColor(theme.colors.onSurface.opacity(0.7))
             .padding(.top, CareSphereSpacing.sm)
     }
-    
+
     var body: some View {
         NavigationView {
             List {
@@ -35,23 +35,25 @@ struct AppSettingsView: View {
                     }
                     .listRowBackground(rowBackgroundColor)
                 }
-                
+
                 // Appearance Section
                 Section(header: sectionHeader("Appearance")) {
-                    Toggle(isOn: Binding(
-                        get: { theme.currentColorScheme == .dark },
-                        set: { theme.setColorScheme($0 ? .dark : .light) }
-                    )) {
+                    Toggle(
+                        isOn: Binding(
+                            get: { theme.currentColorScheme == .dark },
+                            set: { theme.setColorScheme($0 ? .dark : .light) }
+                        )
+                    ) {
                         HStack(spacing: CareSphereSpacing.md) {
                             Image(systemName: "moon.fill")
                                 .foregroundColor(theme.colors.secondary)
                                 .frame(width: 24, height: 24)
-                            
+
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Dark Mode")
                                     .font(CareSphereTypography.bodyMedium)
                                     .foregroundColor(theme.colors.onSurface)
-                                
+
                                 Text("Use dark appearance")
                                     .font(CareSphereTypography.labelSmall)
                                     .foregroundColor(theme.colors.onSurface.opacity(0.6))
@@ -61,7 +63,7 @@ struct AppSettingsView: View {
                     .tint(theme.colors.secondary)
                 }
                 .listRowBackground(rowBackgroundColor)
-                
+
                 // Settings Sections
                 Section(header: sectionHeader("Message Settings")) {
                     SettingsRow(
@@ -70,77 +72,87 @@ struct AppSettingsView: View {
                         subtitle: "Configure your sender identity",
                         action: { showingSenderSettings = true }
                     )
-                    
+
                     SettingsRow(
                         icon: "text.bubble",
                         title: "Message Templates",
                         subtitle: "Manage reusable message templates",
-                        action: { /* TODO: Navigate to templates */ }
+                        action: { /* TODO: Navigate to templates */  }
                     )
                 }
                 .listRowBackground(rowBackgroundColor)
-                
+
                 Section(header: sectionHeader("Notifications")) {
                     SettingsRow(
                         icon: "bell",
                         title: "Push Notifications",
                         subtitle: "Configure notification preferences",
-                        action: { /* TODO: Navigate to notifications */ }
+                        action: { /* TODO: Navigate to notifications */  }
                     )
-                    
+
                     SettingsRow(
                         icon: "envelope.badge",
                         title: "Email Notifications",
                         subtitle: "Email delivery reports and alerts",
-                        action: { /* TODO: Navigate to email settings */ }
+                        action: { /* TODO: Navigate to email settings */  }
                     )
                 }
                 .listRowBackground(rowBackgroundColor)
-                
+
                 Section(header: sectionHeader("Account")) {
                     SettingsRow(
                         icon: "key",
                         title: "Change Password",
                         subtitle: "Update your account password",
-                        action: { /* TODO: Navigate to password change */ }
+                        action: { /* TODO: Navigate to password change */  }
                     )
-                    
+
                     SettingsRow(
                         icon: "shield",
                         title: "Privacy & Security",
                         subtitle: "Manage your privacy settings",
-                        action: { /* TODO: Navigate to privacy */ }
+                        action: { /* TODO: Navigate to privacy */  }
                     )
                 }
                 .listRowBackground(rowBackgroundColor)
-                
+
+                // Organizations Section
+                if let user = authService.currentUser, !user.organizations.isEmpty {
+                    Section(header: sectionHeader("Organizations")) {
+                        ForEach(user.organizations) { membership in
+                            OrganizationRow(membership: membership)
+                        }
+                    }
+                    .listRowBackground(rowBackgroundColor)
+                }
+
                 Section(header: sectionHeader("Support")) {
                     SettingsRow(
                         icon: "questionmark.circle",
                         title: "Help & Support",
                         subtitle: "Get help and contact support",
-                        action: { /* TODO: Navigate to help */ }
+                        action: { /* TODO: Navigate to help */  }
                     )
-                    
+
                     SettingsRow(
                         icon: "info.circle",
                         title: "About",
                         subtitle: "App version and information",
-                        action: { /* TODO: Navigate to about */ }
+                        action: { /* TODO: Navigate to about */  }
                     )
                 }
                 .listRowBackground(rowBackgroundColor)
-                
+
                 Section {
                     Button(action: { showingLogoutConfirmation = true }) {
                         HStack {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
                                 .foregroundColor(theme.colors.error)
                                 .frame(width: 24, height: 24)
-                            
+
                             Text("Sign Out")
                                 .foregroundColor(theme.colors.error)
-                            
+
                             Spacer()
                         }
                         .padding(.vertical, 4)
@@ -153,15 +165,15 @@ struct AppSettingsView: View {
             .background(theme.colors.background)
             .scrollContentBackground(.hidden)
             .navigationTitle("Settings")
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(theme.colors.surface, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(
-                theme.currentColorScheme == .dark ? .dark : .light,
-                for: .navigationBar
-            )
-#endif
+            #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(theme.colors.surface, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
+                .toolbarColorScheme(
+                    theme.currentColorScheme == .dark ? .dark : .light,
+                    for: .navigationBar
+                )
+            #endif
         }
         .navigationViewStyle(.stack)
         .sheet(isPresented: $showingSenderSettings) {
@@ -191,10 +203,10 @@ struct AppSettingsView: View {
 
 struct ProfileRow: View {
     @EnvironmentObject private var theme: CareSphereTheme
-    
+
     let user: User
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: CareSphereSpacing.md) {
@@ -203,7 +215,7 @@ struct ProfileRow: View {
                     Circle()
                         .fill(theme.colors.primary.opacity(0.1))
                         .frame(width: 60, height: 60)
-                    
+
                     if let imageURL = user.avatarUrl {
                         AsyncImage(url: URL(string: imageURL)) { image in
                             image
@@ -223,17 +235,17 @@ struct ProfileRow: View {
                             .foregroundColor(theme.colors.primary)
                     }
                 }
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(user.effectiveDisplayName)
                         .font(CareSphereTypography.titleMedium)
                         .fontWeight(.semibold)
                         .foregroundColor(theme.colors.onSurface)
-                    
+
                     Text(user.email)
                         .font(CareSphereTypography.bodyMedium)
                         .foregroundColor(theme.colors.onSurface.opacity(0.7))
-                    
+
                     HStack {
                         Text(user.role.displayName)
                             .font(CareSphereTypography.labelSmall)
@@ -245,13 +257,13 @@ struct ProfileRow: View {
                                 RoundedRectangle(cornerRadius: 4)
                                     .fill(theme.colors.primary)
                             )
-                        
+
                         Spacer()
                     }
                 }
-                
+
                 Spacer()
-                
+
                 Image(systemName: "chevron.right")
                     .foregroundColor(theme.colors.onSurface.opacity(0.3))
                     .font(.caption)
@@ -264,32 +276,32 @@ struct ProfileRow: View {
 
 struct SettingsRow: View {
     @EnvironmentObject private var theme: CareSphereTheme
-    
+
     let icon: String
     let title: String
     let subtitle: String
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: CareSphereSpacing.md) {
                 Image(systemName: icon)
                     .foregroundColor(theme.colors.primary)
                     .frame(width: 24, height: 24)
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(CareSphereTypography.bodyMedium)
                         .fontWeight(.medium)
                         .foregroundColor(theme.colors.onSurface)
-                    
+
                     Text(subtitle)
                         .font(CareSphereTypography.bodySmall)
                         .foregroundColor(theme.colors.onSurface.opacity(0.7))
                 }
-                
+
                 Spacer()
-                
+
                 Image(systemName: "chevron.right")
                     .foregroundColor(theme.colors.onSurface.opacity(0.3))
                     .font(.caption)
@@ -306,14 +318,14 @@ struct ProfileEditSheet: View {
     @EnvironmentObject private var authService: AuthenticationService
     @EnvironmentObject private var theme: CareSphereTheme
     @Environment(\.dismiss) private var dismiss
-    
+
     let user: User
-    
+
     @State private var firstName: String = ""
     @State private var lastName: String = ""
     @State private var phoneNumber: String = ""
     @State private var isUpdating = false
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -324,19 +336,19 @@ struct ProfileEditSheet: View {
                             Circle()
                                 .fill(theme.colors.primary.opacity(0.1))
                                 .frame(width: 100, height: 100)
-                            
+
                             Text(user.firstName.prefix(1) + user.lastName.prefix(1))
                                 .font(CareSphereTypography.displaySmall)
                                 .fontWeight(.bold)
                                 .foregroundColor(theme.colors.primary)
                         }
-                        
+
                         Text(user.email)
                             .font(CareSphereTypography.bodyLarge)
                             .foregroundColor(theme.colors.onSurface.opacity(0.7))
                     }
                     .padding(.top, CareSphereSpacing.lg)
-                    
+
                     // Form
                     FormCard {
                         VStack(spacing: CareSphereSpacing.lg) {
@@ -347,7 +359,7 @@ struct ProfileEditSheet: View {
                                 icon: "person.fill",
                                 helpText: nil
                             )
-                            
+
                             FormField(
                                 title: "Last Name",
                                 placeholder: "Enter last name",
@@ -355,7 +367,7 @@ struct ProfileEditSheet: View {
                                 icon: "person.fill",
                                 helpText: nil
                             )
-                            
+
                             FormField(
                                 title: "Phone Number",
                                 placeholder: "+1 (555) 123-4567",
@@ -367,7 +379,7 @@ struct ProfileEditSheet: View {
                             )
                         }
                     }
-                    
+
                     Spacer()
                         .frame(height: 100)
                 }
@@ -380,7 +392,7 @@ struct ProfileEditSheet: View {
                         dismiss()
                     }
                 }
-                
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         Task {
@@ -396,18 +408,93 @@ struct ProfileEditSheet: View {
             loadCurrentValues()
         }
     }
-    
+
     private func loadCurrentValues() {
         firstName = user.firstName
         lastName = user.lastName
         phoneNumber = ""  // Phone number not in current API model
     }
-    
+
     private func updateProfile() async {
         isUpdating = true
         // TODO: Implement profile update API call
         // For now just dismiss
         dismiss()
+    }
+}
+
+// MARK: - Organization Row
+
+struct OrganizationRow: View {
+    @EnvironmentObject private var theme: CareSphereTheme
+
+    let membership: UserOrganizationMembership
+
+    var body: some View {
+        HStack(spacing: CareSphereSpacing.md) {
+            // Organization Icon
+            ZStack {
+                Circle()
+                    .fill(theme.colors.primary.opacity(0.1))
+                    .frame(width: 40, height: 40)
+
+                Image(systemName: "building.2.fill")
+                    .foregroundColor(theme.colors.primary)
+                    .font(.system(size: 18))
+            }
+
+            // Organization Info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(membership.organization.name)
+                    .font(CareSphereTypography.bodyMedium)
+                    .fontWeight(.medium)
+                    .foregroundColor(theme.colors.onSurface)
+
+                HStack(spacing: 8) {
+                    // Role Badge
+                    if let role = membership.role {
+                        HStack(spacing: 4) {
+                            Image(systemName: "person.badge.key.fill")
+                                .font(.system(size: 10))
+                            Text(role.displayName)
+                                .font(.system(size: 12))
+                        }
+                        .foregroundColor(theme.colors.secondary)
+                    }
+
+                    // Owner Badge
+                    if membership.isOwner {
+                        HStack(spacing: 4) {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 10))
+                            Text("Owner")
+                                .font(.system(size: 12))
+                        }
+                        .foregroundColor(theme.colors.warning)
+                    }
+
+                    // Active Status
+                    if membership.isActive {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(theme.colors.success)
+                                .frame(width: 6, height: 6)
+                            Text("Active")
+                                .font(.system(size: 12))
+                                .foregroundColor(theme.colors.success)
+                        }
+                    }
+                }
+            }
+
+            Spacer()
+
+            // Chevron
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(theme.colors.onSurface.opacity(0.3))
+        }
+        .padding(.vertical, 4)
     }
 }
 

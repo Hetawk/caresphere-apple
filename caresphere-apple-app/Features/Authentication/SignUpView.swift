@@ -158,8 +158,17 @@ struct SignUpView: View {
 
                 // Check if this is an "already registered" error
                 if errorMsg.lowercased().contains("already registered") {
-                    errorMessage =
-                        "This email is already registered. Please login instead, or use a different email."
+                    if errorMsg.lowercased().contains("active")
+                        && errorMsg.lowercased().contains("login")
+                    {
+                        errorMessage = errorMsg  // Use the full message from backend
+                        // Auto-dismiss after showing alert and switch to login
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            dismiss()
+                        }
+                    } else {
+                        errorMessage = errorMsg
+                    }
                 } else {
                     errorMessage = errorMsg
                 }

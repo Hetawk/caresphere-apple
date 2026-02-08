@@ -2,6 +2,48 @@ import Foundation
 
 // MARK: - User Management Models
 
+/// Organization role information
+struct UserOrganizationRole: Codable, Identifiable, Equatable {
+    let id: String
+    let name: String
+    let displayName: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, name
+        case displayName = "display_name"
+    }
+}
+
+/// Basic organization information for user display
+struct UserOrganizationInfo: Codable, Identifiable, Equatable {
+    let id: String
+    let name: String
+    let slug: String
+    let isActive: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, slug
+        case isActive = "is_active"
+    }
+}
+
+/// User's membership in an organization
+struct UserOrganizationMembership: Codable, Identifiable, Equatable {
+    var id: String { organization.id }  // Use organization ID as identifier
+    let organization: UserOrganizationInfo
+    let role: UserOrganizationRole?
+    let isOwner: Bool
+    let isActive: Bool
+    let joinedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case organization, role
+        case isOwner = "is_owner"
+        case isActive = "is_active"
+        case joinedAt = "joined_at"
+    }
+}
+
 /// User model representing authenticated users in the system
 struct User: Codable, Identifiable, Equatable {
     let id: String
@@ -15,9 +57,10 @@ struct User: Codable, Identifiable, Equatable {
     let lastLoginAt: String?
     let createdAt: String
     let updatedAt: String
+    let organizations: [UserOrganizationMembership]
 
     enum CodingKeys: String, CodingKey {
-        case id, email, role, status
+        case id, email, role, status, organizations
         case fullName = "full_name"
         case displayName = "display_name"
         case avatarUrl = "avatar_url"
@@ -458,6 +501,24 @@ extension User {
         emailVerified: true,
         lastLoginAt: nil,
         createdAt: "2025-11-18T00:00:00",
-        updatedAt: "2025-11-18T00:00:00"
+        updatedAt: "2025-11-18T00:00:00",
+        organizations: [
+            UserOrganizationMembership(
+                organization: UserOrganizationInfo(
+                    id: "org-1",
+                    name: "Demo Church",
+                    slug: "demo-church",
+                    isActive: true
+                ),
+                role: UserOrganizationRole(
+                    id: "role-1",
+                    name: "admin",
+                    displayName: "Admin"
+                ),
+                isOwner: true,
+                isActive: true,
+                joinedAt: "2025-11-18T00:00:00"
+            )
+        ]
     )
 }
