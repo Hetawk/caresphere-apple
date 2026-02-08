@@ -15,8 +15,10 @@ struct SignUpView: View {
     @State private var isLoading = false
     @State private var errorMessage = ""
     @State private var showingError = false
+    @State private var showingVerificationCode = false
     @State private var showingOrganizationOnboarding = false
     @State private var registrationData: (String, String, String)?  // email, password, fullName
+    @State private var verificationCode = ""
 
     var body: some View {
         ZStack {
@@ -75,6 +77,21 @@ struct SignUpView: View {
                 Spacer()
             }
         }
+        .sheet(isPresented: $showingVerificationCode) {
+            VerificationCodeView(
+                email: email,
+                onVerified: { code in
+                    verificationCode = code
+                    showingVerificationCode = false
+                    // Show organization onboarding after verification
+                    showingOrganizationOnboarding = true
+                },
+                onResendCode: {
+                    await resendVerificationCode()
+                }
+            )
+            .environmentObject(theme)
+        }
         .sheet(isPresented: $showingOrganizationOnboarding) {
             OrganizationOnboardingView { option, organizationName, organizationCode in
                 showingOrganizationOnboarding = false
@@ -104,8 +121,27 @@ struct SignUpView: View {
         // Store registration data for later use
         registrationData = (email, password, fullName)
 
-        // Show organization onboarding
-        showingOrganizationOnboarding = true
+        // Send verification code and show verification view
+        Task {
+            isLoading = true
+            defer { isLoading = false }
+
+            let success = await authService.sendVerificationCode(email: email)
+            if success {
+                showingVerificationCode = true
+            } else if let error = authService.error {
+                errorMessage = error.errorDescription ?? "Failed to send verification code"
+                showingError = true
+            }
+        }
+    }
+
+    private func resendVerificationCode() async {
+        let success = await authService.sendVerificationCode(email: email)
+        if !success, let error = authService.error {
+            errorMessage = error.errorDescription ?? "Failed to resend verification code"
+            showingError = true
+        }
     }
 
     private func completeRegistration(
@@ -115,6 +151,12 @@ struct SignUpView: View {
     ) {
         guard let (email, password, fullName) = registrationData else {
             errorMessage = "Registration data lost. Please try again."
+            showingError = true
+            return
+        }
+
+        guard !verificationCode.isEmpty else {
+            errorMessage = "Verification code missing. Please try again."
             showingError = true
             return
         }
@@ -129,7 +171,8 @@ struct SignUpView: View {
                 fullName: fullName,
                 action: action,
                 organizationName: organizationName,
-                organizationCode: organizationCode
+                organizationCode: organizationCode,
+                verificationCode: verificationCode
             )
 
             if success {

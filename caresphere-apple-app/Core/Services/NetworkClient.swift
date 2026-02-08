@@ -452,6 +452,7 @@ enum Endpoints {
         case login
         case register
         case registerWithOrganization
+        case sendVerificationCode
         case refresh
         case logout
         case profile
@@ -465,6 +466,7 @@ enum Endpoints {
             case .login: return "/auth/login"
             case .register: return "/auth/register"
             case .registerWithOrganization: return "/auth/register-with-organization"
+            case .sendVerificationCode: return "/auth/send-verification-code"
             case .refresh: return "/auth/refresh"
             case .logout: return "/auth/logout"
             case .profile: return "/auth/profile"

@@ -146,7 +146,8 @@ class AuthenticationService: ObservableObject {
         displayName: String? = nil,
         action: OrganizationOption,
         organizationName: String? = nil,
-        organizationCode: String? = nil
+        organizationCode: String? = nil,
+        verificationCode: String
     ) async -> Bool {
         isLoading = true
         error = nil
@@ -159,7 +160,8 @@ class AuthenticationService: ObservableObject {
                 displayName: displayName?.trimmingCharacters(in: .whitespacesAndNewlines),
                 action: action,
                 organizationName: organizationName?.trimmingCharacters(in: .whitespacesAndNewlines),
-                organizationCode: organizationCode?.trimmingCharacters(in: .whitespacesAndNewlines)
+                organizationCode: organizationCode?.trimmingCharacters(in: .whitespacesAndNewlines),
+                verificationCode: verificationCode.trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             let response: LoginResponse = try await networkClient.request(
@@ -173,6 +175,35 @@ class AuthenticationService: ObservableObject {
 
             // Set current user
             currentUser = response.user
+
+            isLoading = false
+            return true
+
+        } catch let apiError as APIError {
+            self.error = apiError
+            isLoading = false
+            return false
+        } catch {
+            self.error = .serverError(statusCode: 0, message: error.localizedDescription)
+            isLoading = false
+            return false
+        }
+    }
+
+    func sendVerificationCode(email: String) async -> Bool {
+        isLoading = true
+        error = nil
+
+        do {
+            let request = SendVerificationCodeRequest(
+                email: email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+
+            let _: MessageResponse = try await networkClient.request(
+                endpoint: Endpoints.Auth.sendVerificationCode,
+                method: .POST,
+                body: request
+            )
 
             isLoading = false
             return true

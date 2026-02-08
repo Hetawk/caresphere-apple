@@ -360,6 +360,7 @@ struct RegisterWithOrganizationRequest: Codable {
     let action: OrganizationOption
     let organizationName: String?
     let organizationCode: String?
+    let verificationCode: String
 
     enum CodingKeys: String, CodingKey {
         case email, password, action
@@ -367,7 +368,12 @@ struct RegisterWithOrganizationRequest: Codable {
         case displayName = "display_name"
         case organizationName = "organization_name"
         case organizationCode = "organization_code"
+        case verificationCode = "verification_code"
     }
+}
+
+struct SendVerificationCodeRequest: Codable {
+    let email: String
 }
 
 struct RefreshTokenRequest: Codable {
