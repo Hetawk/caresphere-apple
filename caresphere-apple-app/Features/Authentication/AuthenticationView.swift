@@ -9,6 +9,7 @@ struct AuthenticationView: View {
     @State private var password = ""
     @State private var isLoading = false
     @State private var showingSignUp = false
+    @State private var showingForgotPassword = false
     @State private var showPassword = false
     @State private var errorMessage = ""
     @State private var showingError = false
@@ -39,7 +40,8 @@ struct AuthenticationView: View {
                         password: $password,
                         showPassword: $showPassword,
                         isLoading: $isLoading,
-                        onSignIn: signIn
+                        onSignIn: signIn,
+                        onForgotPassword: { showingForgotPassword = true }
                     )
 
                     // Sign up link
@@ -69,7 +71,12 @@ struct AuthenticationView: View {
         }
         .sheet(isPresented: $showingSignUp) {
             SignUpView()
+        }sheet(isPresented: $showingForgotPassword) {
+            ForgotPasswordView()
+                .environmentObject(authService)
+                .environmentObject(theme)
         }
+        .
         .alert("Sign In Error", isPresented: $showingError) {
             Button("OK") {}
         } message: {
@@ -124,7 +131,8 @@ struct LogoHeader: View {
 struct SignInForm: View {
     @EnvironmentObject private var theme: CareSphereTheme
 
-    @Binding var email: String
+    @Binding var email: Stri
+    let onForgotPassword: () -> Voidng
     @Binding var password: String
     @Binding var showPassword: Bool
     @Binding var isLoading: Bool
@@ -224,7 +232,7 @@ struct SignInForm: View {
                     )
                 }
 
-                // Forgot password
+                // Forgot passwonForgotPasswordd
                 Button(action: {}) {
                     Text("Forgot Password?")
                         .font(CareSphereTypography.bodySmall)

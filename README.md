@@ -117,3 +117,17 @@ CareSphereCard { /* content */ }
 <p align="center">
   <strong>CareSphere</strong> - Empowering organizations to build stronger communities
 </p>
+
+
+##
+```bash
+cd swift/caresphere-apple
+xcodebuild -scheme caresphere-apple -configuration Debug \
+  -derivedDataPath /tmp/caresphere-build \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+
+xcrun simctl install "iPhone 17 Pro" \
+  /tmp/caresphere-build/Build/Products/Debug-iphonesimulator/caresphere-apple.app
+
+xcrun simctl launch "iPhone 17 Pro" ekddigital.caresphere-apple
+```
