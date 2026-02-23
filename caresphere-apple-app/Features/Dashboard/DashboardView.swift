@@ -6,10 +6,12 @@ struct DashboardView: View {
     @EnvironmentObject private var authService: AuthenticationService
     @EnvironmentObject private var settingsService: SenderSettingsService
     @EnvironmentObject private var analyticsService: AnalyticsService
+    @EnvironmentObject private var birthdayService: BirthdayService
 
     @State private var isLoading = false
     @State private var showingAddMember = false
     @State private var showingComposeMessage = false
+    @State private var birthdayComposeTarget: BirthdayMember? = nil
 
     var body: some View {
         NavigationView {
@@ -17,6 +19,13 @@ struct DashboardView: View {
                 LazyVStack(spacing: CareSphereSpacing.md) {
                     // Welcome section
                     welcomeSection
+
+                    // Birthday banner (shown when there are upcoming/today birthdays)
+                    if let bdays = birthdayService.upcomingBirthdays,
+                        bdays.total > 0
+                    {
+                        birthdaySection(bdays)
+                    }
 
                     // Quick stats
                     quickStatsSection
@@ -276,6 +285,25 @@ struct DashboardView: View {
 
     // MARK: - Data Loading
 
+    // MARK: - Birthday Section Builder
+
+    @ViewBuilder
+    private func birthdaySection(_ response: UpcomingBirthdaysResponse) -> some View {
+        BirthdayBannerCard(
+            response: response,
+            onSendMessage: { member in
+                birthdayComposeTarget = member
+            }
+        )
+        .sheet(item: $birthdayComposeTarget) { member in
+            // Pre-fill compose with birthday message for this member
+            MessageComposerView(
+                initialSubject: "Happy Birthday, \(member.firstName)! 🎂",
+                initialMemberIds: [member.id]
+            )
+        }
+    }
+
     private func loadDashboardData() async {
         isLoading = true
         defer { isLoading = false }
@@ -284,6 +312,10 @@ struct DashboardView: View {
         let success = await withTaskGroup(of: Bool.self) { group in
             group.addTask {
                 await self.analyticsService.loadDashboardAnalytics()
+            }
+            group.addTask {
+                try? await self.birthdayService.loadUpcomingBirthdays(days: 30)
+                return true
             }
 
             group.addTask {

@@ -53,9 +53,8 @@ struct MemberRow: View {
         switch status {
         case .active: return .success
         case .inactive: return .secondary
-        case .needsFollowUp: return .warning
+        case .pending: return .warning
         case .archived: return .secondary
-        case .new: return .primary
         }
     }
 }

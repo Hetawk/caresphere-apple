@@ -2,128 +2,97 @@ import Foundation
 
 // MARK: - Member Management Models
 
-/// Core member model representing individuals in the care system
+/// Core member model — matches Prisma Member model (camelCase API response)
 struct Member: Codable, Identifiable, Equatable {
     let id: String
-    let organizationId: String
+    let organizationId: String?
+    let userId: String?
     let firstName: String
-    let lastName: String
+    let lastName: String?
     let email: String?
-    let phoneNumber: String?
-    let whatsAppNumber: String?
-    let weChatID: String?
-    let dateOfBirth: Date?
-    let address: Address?
-    let status: MemberStatus
-    let tags: [String]
-    let customFields: [String: String]
-    let profileImageURL: String?
-    let emergencyContact: EmergencyContact?
-    let householdId: String?
-    let joinDate: Date
-    let lastContactDate: Date?
-    let createdAt: Date
-    let updatedAt: Date
-    let createdBy: String  // User ID who added this member
-    
-    // Computed properties
+    let phone: String?
+    let dateOfBirth: String?  // ISO 8601 string from API
+    let gender: String?
+    // Flat address fields (Prisma stores address as separate columns)
+    let address: String?
+    let city: String?
+    let state: String?
+    let zipCode: String?
+    let country: String?
+    let memberStatus: MemberStatus?
+    let membershipType: String?
+    let joinDate: String?  // ISO 8601 string
+    let photoUrl: String?
+    let notes: String?
+    let tags: [String]?
+    let customFields: [String: String]?
+    let workSchool: String?
+    let whatsappNumber: String?
+    let wechatId: String?
+    let hearAboutUs: String?
+    let involvement: String?
+    let comments: String?
+    let consentGiven: Bool?
+    let createdBy: String?
+    let createdAt: String?
+    let updatedAt: String?
+
+    // Computed properties for backward compat
     var fullName: String {
-        return "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
+        [firstName, lastName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
     }
-    
+
     var displayName: String {
-        return fullName.isEmpty ? email ?? phoneNumber ?? "Unknown" : fullName
+        fullName.isEmpty ? email ?? phone ?? "Unknown" : fullName
     }
-    
-    var age: Int? {
-        guard let dateOfBirth = dateOfBirth else { return nil }
-        let calendar = Calendar.current
-        let ageComponents = calendar.dateComponents([.year], from: dateOfBirth, to: Date())
-        return ageComponents.year
-    }
-    
-    var preferredContactMethod: ContactMethod? {
-        if whatsAppNumber != nil { return .whatsApp }
-        if email != nil { return .email }
-        if phoneNumber != nil { return .sms }
-        return nil
+
+    // Backward compat aliases used by views / DomainServices
+    var phoneNumber: String? { phone }
+    var whatsAppNumber: String? { whatsappNumber }
+    var weChatID: String? { wechatId }
+    var profileImageURL: String? { photoUrl }
+    var status: MemberStatus { memberStatus ?? .active }
+
+    var formattedAddress: String? {
+        let parts = [address, city, state, zipCode, country]
+            .compactMap { $0 }.filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 }
 
-/// Member status categories
+/// Helper for decoding JSON fields that can be any value (used for customFields)
+// Note: AnyCodable is defined in FieldConfigModels.swift
+
+/// Member status categories — matches Prisma MemberStatus enum (uppercase)
 enum MemberStatus: String, Codable, CaseIterable {
-    case active = "active"
-    case inactive = "inactive"
-    case needsFollowUp = "needs_follow_up"
-    case archived = "archived"
-    case new = "new"
-    
+    case active = "ACTIVE"
+    case inactive = "INACTIVE"
+    case pending = "PENDING"
+    case archived = "ARCHIVED"
+
     var displayName: String {
         switch self {
         case .active:
             return "Active"
         case .inactive:
             return "Inactive"
-        case .needsFollowUp:
-            return "Needs Follow-up"
+        case .pending:
+            return "Pending"
         case .archived:
             return "Archived"
-        case .new:
-            return "New"
         }
     }
-    
+
     var color: String {
         switch self {
         case .active:
             return "success"
         case .inactive:
             return "secondary"
-        case .needsFollowUp:
+        case .pending:
             return "warning"
         case .archived:
             return "tertiary"
-        case .new:
-            return "info"
-        }
-    }
-}
-
-/// Contact methods for multi-channel communication
-enum ContactMethod: String, Codable, CaseIterable {
-    case email = "email"
-    case sms = "sms"
-    case whatsApp = "whatsapp"
-    case voice = "voice"
-    case inApp = "in_app"
-    
-    var displayName: String {
-        switch self {
-        case .email:
-            return "Email"
-        case .sms:
-            return "SMS"
-        case .whatsApp:
-            return "WhatsApp"
-        case .voice:
-            return "Voice Call"
-        case .inApp:
-            return "In-App"
-        }
-    }
-    
-    var icon: String {
-        switch self {
-        case .email:
-            return "envelope"
-        case .sms:
-            return "message"
-        case .whatsApp:
-            return "phone.bubble"
-        case .voice:
-            return "phone"
-        case .inApp:
-            return "bell"
         }
     }
 }
@@ -135,7 +104,7 @@ struct Address: Codable, Equatable {
     let state: String?
     let postalCode: String?
     let country: String?
-    
+
     var formattedAddress: String {
         let components = [street, city, state, postalCode, country]
             .compactMap { $0 }
@@ -176,7 +145,7 @@ enum NoteCategory: String, Codable, CaseIterable {
     case followUp = "follow_up"
     case celebration = "celebration"
     case concern = "concern"
-    
+
     var displayName: String {
         switch self {
         case .general:
@@ -197,7 +166,7 @@ enum NoteCategory: String, Codable, CaseIterable {
             return "Concern"
         }
     }
-    
+
     var color: String {
         switch self {
         case .general:
@@ -244,7 +213,7 @@ enum ActivityType: String, Codable, CaseIterable {
     case tagAdded = "tag_added"
     case tagRemoved = "tag_removed"
     case profileUpdated = "profile_updated"
-    
+
     var displayName: String {
         switch self {
         case .messageReceived:
@@ -293,7 +262,7 @@ enum HouseholdType: String, Codable, CaseIterable {
     case couple = "couple"
     case community = "community"
     case other = "other"
-    
+
     var displayName: String {
         return rawValue.capitalized
     }
@@ -301,41 +270,76 @@ enum HouseholdType: String, Codable, CaseIterable {
 
 // MARK: - Member Request/Response Models
 
+/// Create member request — matches /api/members POST schema
 struct CreateMemberRequest: Codable {
     let firstName: String
-    let lastName: String
+    let lastName: String?
     let email: String?
-    let phoneNumber: String?
-    let whatsAppNumber: String?
-    let weChatID: String?
-    let dateOfBirth: Date?
-    let address: Address?
-    let tags: [String]
-    let customFields: [String: String]
-    let emergencyContact: EmergencyContact?
-    let householdId: String?
+    let phone: String?
+    let whatsappNumber: String?
+    let wechatId: String?
+    let dateOfBirth: String?  // ISO 8601 string
+    let gender: String?  // MALE | FEMALE | ORGANIZATION
+    let address: String?
+    let city: String?
+    let state: String?
+    let zipCode: String?
+    let country: String?
+    let memberStatus: MemberStatus?
+    let membershipType: String?
+    let joinDate: String?  // ISO 8601 string
+    let photoUrl: String?
+    let notes: String?
+    let tags: [String]?
+    let customFields: [String: String]?
+    let workSchool: String?
+    let hearAboutUs: String?
+    let involvement: String?
+    let comments: String?
+    let consentGiven: Bool?
 }
 
+/// Update member request — matches /api/members/[id] PUT schema (same fields, all optional)
 struct UpdateMemberRequest: Codable {
     let firstName: String?
     let lastName: String?
     let email: String?
-    let phoneNumber: String?
-    let whatsAppNumber: String?
-    let weChatID: String?
-    let dateOfBirth: Date?
-    let address: Address?
-    let status: MemberStatus?
+    let phone: String?
+    let whatsappNumber: String?
+    let wechatId: String?
+    let dateOfBirth: String?  // ISO 8601 string
+    let gender: String?  // MALE | FEMALE | ORGANIZATION
+    let address: String?
+    let city: String?
+    let state: String?
+    let zipCode: String?
+    let country: String?
+    let memberStatus: MemberStatus?
+    let membershipType: String?
+    let joinDate: String?  // ISO 8601 string
+    let photoUrl: String?
+    let notes: String?
     let tags: [String]?
     let customFields: [String: String]?
-    let emergencyContact: EmergencyContact?
-    let householdId: String?
 }
 
+/// Paginated member list response — matches API { items, page, limit, total }
 struct MemberListResponse: Codable {
-    let members: [Member]
-    let pagination: PaginationInfo
-    let totalCount: Int
+    let items: [Member]
+    let page: Int?
+    let limit: Int?
+    let total: Int?
+
+    var members: [Member] { items }
+    var totalCount: Int { total ?? items.count }
+    var pagination: PaginationInfo {
+        PaginationInfo(
+            page: page ?? 1,
+            pageSize: limit ?? items.count,
+            hasNext: (total ?? 0) > (page ?? 1) * (limit ?? items.count),
+            hasPrevious: (page ?? 1) > 1
+        )
+    }
 }
 
 struct PaginationInfo: Codable {
@@ -380,7 +384,7 @@ enum MemberSortField: String, Codable, CaseIterable {
     case lastContact = "last_contact"
     case status = "status"
     case createdAt = "created_at"
-    
+
     var displayName: String {
         switch self {
         case .firstName:
@@ -402,7 +406,7 @@ enum MemberSortField: String, Codable, CaseIterable {
 enum SortOrder: String, Codable, CaseIterable {
     case ascending = "asc"
     case descending = "desc"
-    
+
     var displayName: String {
         switch self {
         case .ascending:
@@ -419,36 +423,35 @@ extension Member {
     static let preview = Member(
         id: "preview-member-id",
         organizationId: "preview-org-id",
+        userId: nil,
         firstName: "John",
         lastName: "Doe",
         email: "john.doe@example.com",
-        phoneNumber: "+1-555-0123",
-        whatsAppNumber: nil,
-        weChatID: nil,
-        dateOfBirth: Calendar.current.date(byAdding: .year, value: -30, to: Date()),
-        address: Address(
-            street: "123 Main St",
-            city: "Anytown",
-            state: "CA",
-            postalCode: "12345",
-            country: "USA"
-        ),
-        status: .active,
+        phone: "+1-555-0123",
+        dateOfBirth: "1994-11-18T00:00:00Z",
+        gender: nil,
+        address: "123 Main St",
+        city: "Anytown",
+        state: "CA",
+        zipCode: "12345",
+        country: "USA",
+        memberStatus: .active,
+        membershipType: nil,
+        joinDate: "2025-01-01T00:00:00Z",
+        photoUrl: nil,
+        notes: nil,
         tags: ["vip", "regular"],
-        customFields: [:],
-        profileImageURL: nil,
-        emergencyContact: EmergencyContact(
-            name: "Jane Doe",
-            relationship: "Spouse",
-            phoneNumber: "+1-555-0456",
-            email: "jane.doe@example.com"
-        ),
-        householdId: nil,
-        joinDate: Date(),
-        lastContactDate: Date(),
-        createdAt: Date(),
-        updatedAt: Date(),
-        createdBy: "preview-user-id"
+        customFields: nil,
+        workSchool: nil,
+        whatsappNumber: nil,
+        wechatId: nil,
+        hearAboutUs: nil,
+        involvement: nil,
+        comments: nil,
+        consentGiven: false,
+        createdBy: "preview-user-id",
+        createdAt: "2025-11-18T00:00:00Z",
+        updatedAt: "2025-11-18T00:00:00Z"
     )
 }
 // MARK: - Bulk Import Models
@@ -458,7 +461,7 @@ struct BulkImportResult: Codable {
     let successCount: Int
     let failureCount: Int
     let errors: [ImportError]
-    
+
     struct ImportError: Codable {
         let row: Int
         let message: String

@@ -15,6 +15,7 @@ struct ContentView: View {
     @StateObject private var memberService = MemberService.shared
     @StateObject private var messageService = MessageService.shared
     @StateObject private var analyticsService = AnalyticsService.shared
+    @StateObject private var birthdayService = BirthdayService.shared
     @State private var hasLoadedInitialUser = false
 
     var body: some View {
@@ -31,6 +32,7 @@ struct ContentView: View {
         .environmentObject(memberService)
         .environmentObject(messageService)
         .environmentObject(analyticsService)
+        .environmentObject(birthdayService)
         .task {
             guard !hasLoadedInitialUser else { return }
             hasLoadedInitialUser = true

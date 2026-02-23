@@ -100,17 +100,26 @@ class AuthenticationService: ObservableObject {
         email: String,
         password: String,
         fullName: String,
-        displayName: String? = nil
+        verificationCode: String,
+        phone: String? = nil
     ) async -> Bool {
         isLoading = true
         error = nil
 
         do {
+            // Split fullName into firstName / lastName for API
+            let trimmedName = fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let nameParts = trimmedName.split(separator: " ", maxSplits: 1)
+            let firstName = nameParts.count > 0 ? String(nameParts[0]) : trimmedName
+            let lastName = nameParts.count > 1 ? String(nameParts[1]) : ""
+
             let request = RegisterRequest(
                 email: email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines),
                 password: password,
-                fullName: fullName.trimmingCharacters(in: .whitespacesAndNewlines),
-                displayName: displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+                firstName: firstName,
+                lastName: lastName,
+                code: verificationCode.trimmingCharacters(in: .whitespacesAndNewlines),
+                phone: phone
             )
 
             let response: LoginResponse = try await networkClient.request(
@@ -153,15 +162,34 @@ class AuthenticationService: ObservableObject {
         error = nil
 
         do {
+            // Split fullName into firstName / lastName for API
+            let trimmedName = fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let nameParts = trimmedName.split(separator: " ", maxSplits: 1)
+            let firstName = nameParts.count > 0 ? String(nameParts[0]) : trimmedName
+            let lastName = nameParts.count > 1 ? String(nameParts[1]) : nil
+
+            // Map .skip to "create" without an org (backend requires create or join)
+            let orgAction: String
+            switch action {
+            case .create:
+                orgAction = "create"
+            case .join:
+                orgAction = "join"
+            case .skip:
+                orgAction = "create"
+            }
+
             let request = RegisterWithOrganizationRequest(
                 email: email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines),
                 password: password,
-                fullName: fullName.trimmingCharacters(in: .whitespacesAndNewlines),
-                displayName: displayName?.trimmingCharacters(in: .whitespacesAndNewlines),
-                action: action,
-                organizationName: organizationName?.trimmingCharacters(in: .whitespacesAndNewlines),
-                organizationCode: organizationCode?.trimmingCharacters(in: .whitespacesAndNewlines),
-                verificationCode: verificationCode.trimmingCharacters(in: .whitespacesAndNewlines)
+                firstName: firstName,
+                lastName: lastName ?? "",
+                code: verificationCode.trimmingCharacters(in: .whitespacesAndNewlines),
+                phone: nil,
+                organizationAction: orgAction,
+                organizationName: action == .skip
+                    ? nil : organizationName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                organizationCode: organizationCode?.trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             let response: LoginResponse = try await networkClient.request(
@@ -302,7 +330,7 @@ class AuthenticationService: ObservableObject {
 
             let _: MessageResponse = try await networkClient.request(
                 endpoint: Endpoints.Auth.changePassword,
-                method: .POST,
+                method: .PATCH,
                 body: request
             )
 
@@ -645,16 +673,23 @@ class MemberService: ObservableObject {
             firstName: nil,
             lastName: nil,
             email: nil,
-            phoneNumber: nil,
-            whatsAppNumber: nil,
-            weChatID: nil,
+            phone: nil,
+            whatsappNumber: nil,
+            wechatId: nil,
             dateOfBirth: nil,
+            gender: nil,
             address: nil,
-            status: status,
+            city: nil,
+            state: nil,
+            zipCode: nil,
+            country: nil,
+            memberStatus: status,
+            membershipType: nil,
+            joinDate: nil,
+            photoUrl: nil,
+            notes: nil,
             tags: nil,
-            customFields: nil,
-            emergencyContact: nil,
-            householdId: nil
+            customFields: nil
         )
 
         _ = try await updateMember(id: id, request: request)
@@ -762,8 +797,7 @@ class MessageService: ObservableObject {
     // MARK: - Template Operations
 
     func loadTemplates() async throws {
-        try authService.requiresPermission(\.manageTemplates)
-
+        // All authenticated users can browse templates (read-only)
         templates =
             try await networkClient.request<[MessageTemplate]>(endpoint: Endpoints.Templates.list)
     }
@@ -789,54 +823,27 @@ class MessageService: ObservableObject {
         subject: String?,
         content: String,
         channel: MessageChannel,
-        priority: MessagePriority = .normal,
         templateId: String? = nil
     ) async throws -> Message {
 
-        let recipients = members.compactMap { member -> RecipientRequest? in
-            let contactInfo: ContactInfo
-
-            switch channel {
-            case .email:
-                guard let email = member.email else { return nil }
-                contactInfo = ContactInfo(
-                    email: email, phoneNumber: nil, whatsappNumber: nil, pushToken: nil,
-                    name: member.fullName)
-            case .sms:
-                guard let phone = member.phoneNumber else { return nil }
-                contactInfo = ContactInfo(
-                    email: nil, phoneNumber: phone, whatsappNumber: nil, pushToken: nil,
-                    name: member.fullName)
-            case .whatsapp:
-                guard let whatsapp = member.whatsAppNumber else { return nil }
-                contactInfo = ContactInfo(
-                    email: nil, phoneNumber: nil, whatsappNumber: whatsapp, pushToken: nil,
-                    name: member.fullName)
-            default:
-                return nil
-            }
-
-            return RecipientRequest(
-                memberId: member.id,
-                recipientType: .member,
-                contactInfo: contactInfo
-            )
-        }
-
         let request = CreateMessageRequest(
-            subject: subject,
+            title: subject ?? "Message",
             content: content,
-            messageType: .broadcast,
-            priority: priority,
-            channel: channel,
+            messageType: channel,
+            scheduledFor: nil,
+            senderName: nil,
+            senderEmail: nil,
+            senderPhone: nil,
+            senderWhatsapp: nil,
+            channelLabel: nil,
             templateId: templateId,
-            recipients: recipients,
-            scheduledAt: nil,
-            templateVariables: nil
+            senderProfileId: nil,
+            recipientMemberIds: members.map { $0.id },
+            recipientGroup: nil
         )
 
         let message = try await createMessage(request)
-        return try await sendMessage(id: message.id)
+        return message
     }
 
     // MARK: - Preview Extension
@@ -1331,6 +1338,7 @@ class OrganizationService: ObservableObject {
     @MainActor static let shared = OrganizationService()
 
     @Published var currentOrganization: Organization?
+    @Published var allOrganizations: [OrganizationWithMembership] = []
     @Published var isLoading = false
     @Published var error: APIError?
 
@@ -1406,14 +1414,14 @@ class OrganizationService: ObservableObject {
         }
     }
 
-    /// Join an organization using a 7-digit code
+    /// Join an organization using a 7-character alphanumeric code
     func joinOrganization(code: String) async throws -> Organization {
         isLoading = true
         error = nil
         defer { isLoading = false }
 
         let request = JoinOrganizationRequest(
-            organizationCode: code.trimmingCharacters(in: .whitespacesAndNewlines)
+            code: code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         )
 
         do {
@@ -1466,12 +1474,60 @@ class OrganizationService: ObservableObject {
         }
     }
 
+    /// Load all organizations the user belongs to
+    func loadAllOrganizations() async throws -> [OrganizationWithMembership] {
+        guard authService.isAuthenticated else { return [] }
+
+        do {
+            let orgs: [OrganizationWithMembership] = try await networkClient.request(
+                endpoint: Endpoints.Organizations.allOrganizations
+            )
+            allOrganizations = orgs
+            return orgs
+        } catch let apiError as APIError {
+            self.error = apiError
+            throw apiError
+        } catch {
+            let apiError = APIError.unknown(error)
+            self.error = apiError
+            throw apiError
+        }
+    }
+
+    /// Switch the active organization
+    func switchOrganization(to organizationId: String) async throws -> Organization {
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+
+        struct SwitchRequest: Codable { let organizationId: String }
+
+        do {
+            let org: Organization = try await networkClient.request(
+                endpoint: Endpoints.Organizations.switchOrg,
+                method: .POST,
+                body: SwitchRequest(organizationId: organizationId)
+            )
+            currentOrganization = org
+            // Refresh the full list so active state updates
+            try? await loadAllOrganizations()
+            return org
+        } catch let apiError as APIError {
+            self.error = apiError
+            throw apiError
+        } catch {
+            let apiError = APIError.unknown(error)
+            self.error = apiError
+            throw apiError
+        }
+    }
+
     // MARK: - Validation
 
-    /// Validate organization code format (7 digits)
+    /// Validate organization code format (7-character alphanumeric)
     func isValidCode(_ code: String) -> Bool {
-        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.count == 7 && trimmed.allSatisfy { $0.isNumber }
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return trimmed.count == 7 && trimmed.allSatisfy { $0.isLetter || $0.isNumber }
     }
 
     // MARK: - Preview Extension
@@ -1480,4 +1536,92 @@ class OrganizationService: ObservableObject {
         let service = OrganizationService.shared
         return service
     }()
+}
+
+// MARK: - ════════════════════════════════════════════════════════════
+// MARK: - 8️⃣ Birthday Service
+// MARK: - ════════════════════════════════════════════════════════════
+
+@MainActor
+class BirthdayService: ObservableObject {
+
+    static let shared = BirthdayService()
+    private init() {}
+
+    // MARK: - Dependencies
+    private let networkClient = NetworkClient.shared
+    private let authService = AuthenticationService.shared
+
+    // MARK: - Published State
+    @Published var upcomingBirthdays: UpcomingBirthdaysResponse?
+    @Published var isLoading = false
+    @Published var lastFetchedAt: Date?
+
+    // MARK: - Load
+
+    /// Fetch members with birthdays in the next `days` days (default 30).
+    /// Lightweight — any authenticated user can call this.
+    func loadUpcomingBirthdays(days: Int = 30) async throws {
+        isLoading = true
+        defer { isLoading = false }
+
+        let response: UpcomingBirthdaysResponse = try await networkClient.request(
+            endpoint: Endpoints.Birthdays.upcoming(days: days)
+        )
+        upcomingBirthdays = response
+        lastFetchedAt = Date()
+    }
+
+    /// Refresh if data is stale (older than 1 hour) or absent.
+    func refreshIfNeeded() async {
+        if let last = lastFetchedAt, Date().timeIntervalSince(last) < 3600 { return }
+        try? await loadUpcomingBirthdays()
+    }
+
+    // MARK: - Generate Birthday Message
+
+    struct BirthdayMessageRequest: Codable {
+        let recipientName: String
+        let channel: String
+        let age: Int?
+    }
+
+    /// Generate an org-type-aware birthday message for a member.
+    /// Used in the compose flow when selecting "Birthday" template.
+    func generateBirthdayMessage(
+        for member: BirthdayMember,
+        channel: String = "EMAIL"
+    ) async throws -> GeneratedBirthdayMessage {
+        let body = BirthdayMessageRequest(
+            recipientName: member.fullName,
+            channel: channel,
+            age: member.age
+        )
+        return try await networkClient.request(
+            endpoint: Endpoints.Birthdays.generateMessage,
+            method: .POST,
+            body: body
+        )
+    }
+
+    // MARK: - Convenience
+
+    /// All birthdays sorted: today first, then ascending by days.
+    var allSorted: [BirthdayMember] { upcomingBirthdays?.allSorted ?? [] }
+
+    /// Birthday members whose day is today.
+    var todayBirthdays: [BirthdayMember] { upcomingBirthdays?.today ?? [] }
+
+    /// Birthday members within the next 7 days (excluding today).
+    var thisWeek: [BirthdayMember] {
+        (upcomingBirthdays?.upcoming ?? []).filter { $0.daysUntil <= 7 }
+    }
+
+    /// Count for notification badge.
+    var todayCount: Int { todayBirthdays.count }
+
+    /// True if any birthday is today or within 3 days.
+    var hasUrgent: Bool {
+        allSorted.contains { $0.daysUntil <= 3 }
+    }
 }

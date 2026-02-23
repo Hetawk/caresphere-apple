@@ -80,6 +80,10 @@ struct TemplateRow: View {
             return Color.blue
         case .emergency:
             return theme.colors.error
+        case .welfare:
+            return Color.teal
+        case .evangelism:
+            return Color.orange
         case .general:
             return theme.colors.onSurface.opacity(0.5)
         }
@@ -91,14 +95,10 @@ struct TemplateRow: View {
             return "envelope.fill"
         case .sms:
             return "message.fill"
-        case .whatsapp:
-            return "bubble.left.and.bubble.right.fill"
         case .push:
             return "bell.fill"
         case .inApp:
             return "app.fill"
-        case .voice:
-            return "phone.fill"
         }
     }
 }

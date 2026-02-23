@@ -2,42 +2,31 @@ import Foundation
 
 // MARK: - Message Models
 
-/// Core message model for multi-channel communication
+/// Core message model — matches Prisma Message model (camelCase API response)
 struct Message: Codable, Identifiable, Equatable {
     let id: String
-    let organizationId: String
-    let senderId: String  // User ID who sent the message
-    let subject: String?
+    let organizationId: String?
+    let title: String
     let content: String
-    let messageType: MessageType
-    let priority: MessagePriority
-    let channel: MessageChannel
-    let templateId: String?
-    let recipients: [MessageRecipient]
-    let scheduledAt: Date?
-    let sentAt: Date?
+    let messageType: MessageChannel  // EMAIL | SMS | PUSH | IN_APP
     let status: MessageStatus
-    let metadata: [String: String]
-    let createdAt: Date
-    let updatedAt: Date
+    let scheduledFor: String?
+    let sentAt: String?
+    let senderName: String?
+    let senderEmail: String?
+    let senderPhone: String?
+    let templateId: String?
+    let createdBy: String?
+    let recipientCount: Int?
+    let openedCount: Int?
+    let clickedCount: Int?
+    let failedCount: Int?
+    let createdAt: String?
+    let updatedAt: String?
 
-    // Computed properties
-    var recipientCount: Int {
-        return recipients.count
-    }
-
-    var successfulDeliveries: Int {
-        return recipients.filter { $0.deliveryStatus == .delivered }.count
-    }
-
-    var failedDeliveries: Int {
-        return recipients.filter { $0.deliveryStatus == .failed }.count
-    }
-
-    var deliveryRate: Double {
-        guard recipientCount > 0 else { return 0 }
-        return Double(successfulDeliveries) / Double(recipientCount)
-    }
+    // Backward-compat helpers for UI
+    var subject: String? { title }
+    var senderId: String? { createdBy }
 }
 
 /// Message types for categorization
@@ -111,14 +100,12 @@ enum MessagePriority: String, Codable, CaseIterable {
     }
 }
 
-/// Communication channels
+/// Communication channels — matches Prisma MessageType enum (uppercase)
 enum MessageChannel: String, Codable, CaseIterable {
-    case email = "email"
-    case sms = "sms"
-    case whatsapp = "whatsapp"
-    case push = "push"
-    case inApp = "in_app"
-    case voice = "voice"
+    case email = "EMAIL"
+    case sms = "SMS"
+    case push = "PUSH"
+    case inApp = "IN_APP"
 
     var displayName: String {
         switch self {
@@ -126,14 +113,10 @@ enum MessageChannel: String, Codable, CaseIterable {
             return "Email"
         case .sms:
             return "SMS"
-        case .whatsapp:
-            return "WhatsApp"
         case .push:
             return "Push Notification"
         case .inApp:
             return "In-App"
-        case .voice:
-            return "Voice"
         }
     }
 
@@ -143,37 +126,23 @@ enum MessageChannel: String, Codable, CaseIterable {
             return "envelope"
         case .sms:
             return "message"
-        case .whatsapp:
-            return "phone.bubble"
         case .push:
             return "bell"
         case .inApp:
             return "app.badge"
-        case .voice:
-            return "phone"
         }
     }
 
-    var requiresContent: Bool {
-        switch self {
-        case .email, .sms, .whatsapp, .inApp:
-            return true
-        case .push:
-            return true
-        case .voice:
-            return false  // Voice might use TTS from content or pre-recorded
-        }
-    }
+    var requiresContent: Bool { true }
 }
 
-/// Message status tracking
+/// Message status tracking — matches Prisma MessageStatus enum (uppercase)
 enum MessageStatus: String, Codable, CaseIterable {
-    case draft = "draft"
-    case scheduled = "scheduled"
-    case sending = "sending"
-    case sent = "sent"
-    case failed = "failed"
-    case cancelled = "cancelled"
+    case draft = "DRAFT"
+    case scheduled = "SCHEDULED"
+    case pending = "PENDING"
+    case sent = "SENT"
+    case failed = "FAILED"
 
     var displayName: String {
         switch self {
@@ -181,14 +150,12 @@ enum MessageStatus: String, Codable, CaseIterable {
             return "Draft"
         case .scheduled:
             return "Scheduled"
-        case .sending:
-            return "Sending"
+        case .pending:
+            return "Pending"
         case .sent:
             return "Sent"
         case .failed:
             return "Failed"
-        case .cancelled:
-            return "Cancelled"
         }
     }
 
@@ -198,14 +165,12 @@ enum MessageStatus: String, Codable, CaseIterable {
             return "secondary"
         case .scheduled:
             return "info"
-        case .sending:
+        case .pending:
             return "warning"
         case .sent:
             return "success"
         case .failed:
             return "error"
-        case .cancelled:
-            return "tertiary"
         }
     }
 }
@@ -295,26 +260,106 @@ enum DeliveryStatus: String, Codable, CaseIterable {
 
 // MARK: - Message Template Models
 
-/// Reusable message templates
-struct MessageTemplate: Codable, Identifiable, Equatable {
+/// Reusable message template — matches Prisma Template model
+/// API fields: id, name, description, templateType, category, subject, content,
+/// variables (JSON string), thumbnailUrl, isActive, usageCount, createdBy, createdAt, updatedAt
+struct MessageTemplate: Identifiable, Equatable {
     let id: String
-    let organizationId: String
     let name: String
     let description: String?
-    let category: TemplateCategory
+    let templateType: String?  // "EMAIL" | "SMS" | "PUSH"
+    let category: TemplateCategory  // decoded from category string; falls back to .general
     let subject: String?
     let content: String
-    let placeholders: [TemplatePlaceholder]
-    let supportedChannels: [MessageChannel]
+    let variables: String?  // JSON-encoded array: "[\"firstName\",\"orgName\"]"
+    let thumbnailUrl: String?
     let isActive: Bool
     let usageCount: Int
-    let createdBy: String  // User ID
-    let createdAt: Date
-    let updatedAt: Date
+    let createdBy: String?
+    let createdAt: String?
+    let updatedAt: String?
 
-    // Computed properties
+    // MARK: - Computed UI helpers (backward-compat with views)
+
+    /// Variable names parsed from the JSON `variables` string
     var placeholderNames: [String] {
-        return placeholders.map { $0.name }
+        guard let vars = variables,
+            let arr = try? JSONDecoder().decode([String].self, from: Data(vars.utf8))
+        else { return [] }
+        return arr
+    }
+
+    /// Virtual TemplatePlaceholder objects derived from variable names
+    var placeholders: [TemplatePlaceholder] {
+        placeholderNames.map { key in
+            TemplatePlaceholder(
+                name: key,
+                displayName:
+                    key
+                    .replacingOccurrences(
+                        of: "([a-z])([A-Z])", with: "$1 $2", options: .regularExpression
+                    )
+                    .capitalized,
+                type: .memberField,
+                isRequired: false,
+                defaultValue: nil,
+                description: "Insert member's \(key)"
+            )
+        }
+    }
+
+    /// Maps Prisma single templateType to channel array for UI compatibility
+    var supportedChannels: [MessageChannel] {
+        switch templateType?.uppercased() {
+        case "SMS": return [.sms]
+        case "PUSH": return [.push]
+        default: return [.email]
+        }
+    }
+}
+
+extension MessageTemplate: Codable {
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, subject, content, variables, thumbnailUrl
+        case templateType, category, isActive, usageCount
+        case createdBy, createdAt, updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        templateType = try c.decodeIfPresent(String.self, forKey: .templateType)
+        let catStr = try c.decodeIfPresent(String.self, forKey: .category)
+        category = TemplateCategory(rawValue: catStr ?? "") ?? .general
+        subject = try c.decodeIfPresent(String.self, forKey: .subject)
+        content = try c.decode(String.self, forKey: .content)
+        variables = try c.decodeIfPresent(String.self, forKey: .variables)
+        thumbnailUrl = try c.decodeIfPresent(String.self, forKey: .thumbnailUrl)
+        isActive = (try? c.decodeIfPresent(Bool.self, forKey: .isActive)) ?? true
+        usageCount = (try? c.decodeIfPresent(Int.self, forKey: .usageCount)) ?? 0
+        createdBy = try c.decodeIfPresent(String.self, forKey: .createdBy)
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+        updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encodeIfPresent(templateType, forKey: .templateType)
+        try c.encode(category.rawValue, forKey: .category)
+        try c.encodeIfPresent(subject, forKey: .subject)
+        try c.encode(content, forKey: .content)
+        try c.encodeIfPresent(variables, forKey: .variables)
+        try c.encodeIfPresent(thumbnailUrl, forKey: .thumbnailUrl)
+        try c.encode(isActive, forKey: .isActive)
+        try c.encode(usageCount, forKey: .usageCount)
+        try c.encodeIfPresent(createdBy, forKey: .createdBy)
+        try c.encodeIfPresent(createdAt, forKey: .createdAt)
+        try c.encodeIfPresent(updatedAt, forKey: .updatedAt)
     }
 }
 
@@ -327,6 +372,8 @@ enum TemplateCategory: String, Codable, CaseIterable {
     case prayer = "prayer"
     case pastoral = "pastoral"
     case emergency = "emergency"
+    case welfare = "welfare"
+    case evangelism = "evangelism"
     case general = "general"
 
     var displayName: String {
@@ -347,6 +394,10 @@ enum TemplateCategory: String, Codable, CaseIterable {
             return "Pastoral Care"
         case .emergency:
             return "Emergency"
+        case .welfare:
+            return "Welfare Check"
+        case .evangelism:
+            return "Evangelism"
         case .general:
             return "General"
         }
@@ -393,28 +444,49 @@ enum PlaceholderType: String, Codable, CaseIterable {
 
 // MARK: - Message Request/Response Models
 
+/// Create message request — matches /api/messages POST schema
 struct CreateMessageRequest: Codable {
-    let subject: String?
+    let title: String
     let content: String
-    let messageType: MessageType
-    let priority: MessagePriority
-    let channel: MessageChannel
+    let messageType: MessageChannel?
+    let scheduledFor: String?  // ISO 8601 string
+    let senderName: String?
+    let senderEmail: String?
+    let senderPhone: String?
+    let senderWhatsapp: String?
+    let channelLabel: String?
     let templateId: String?
-    let recipients: [RecipientRequest]
-    let scheduledAt: Date?
-    let templateVariables: [String: String]?
+    let senderProfileId: String?
+    let recipientMemberIds: [String]?
+    let recipientGroup: RecipientGroup?  // ALL | ACTIVE | INACTIVE | PENDING
 }
 
-struct RecipientRequest: Codable {
-    let memberId: String?
-    let recipientType: RecipientType
-    let contactInfo: ContactInfo
+/// Recipient group filter for broadcast messages
+enum RecipientGroup: String, Codable, CaseIterable {
+    case all = "ALL"
+    case active = "ACTIVE"
+    case inactive = "INACTIVE"
+    case pending = "PENDING"
 }
 
+/// Paginated message list response — matches API { items, page, limit, total }
 struct MessageListResponse: Codable {
-    let messages: [Message]
-    let pagination: PaginationInfo
-    let totalCount: Int
+    let items: [Message]
+    let page: Int?
+    let limit: Int?
+    let total: Int?
+
+    // Convenience accessors
+    var messages: [Message] { items }
+    var totalCount: Int { total ?? items.count }
+    var pagination: PaginationInfo {
+        PaginationInfo(
+            page: page ?? 1,
+            pageSize: limit ?? items.count,
+            hasNext: (total ?? 0) > (page ?? 1) * (limit ?? items.count),
+            hasPrevious: (page ?? 1) > 1
+        )
+    }
 }
 
 struct MessageAnalytics: Codable {
@@ -497,7 +569,7 @@ struct SenderSetting: Codable, Identifiable, Equatable {
     let phone: String?
     let createdAt: Date
     let updatedAt: Date
-    
+
     var displayIdentity: String {
         var parts: [String] = []
         if let name = name, !name.isEmpty {
@@ -526,7 +598,7 @@ enum SettingScope: String, Codable, CaseIterable {
             return "Personal"
         }
     }
-    
+
     var description: String {
         switch self {
         case .global:
@@ -537,7 +609,7 @@ enum SettingScope: String, Codable, CaseIterable {
             return "Personal sender settings that override others"
         }
     }
-    
+
     var priority: Int {
         switch self {
         case .user:
@@ -556,7 +628,7 @@ struct ResolvedSenderSettings: Codable, Equatable {
     let email: String?
     let phone: String?
     let layers: SettingsLayers
-    
+
     var displayIdentity: String {
         var parts: [String] = []
         if let name = name, !name.isEmpty {
@@ -567,18 +639,22 @@ struct ResolvedSenderSettings: Codable, Equatable {
         }
         return parts.isEmpty ? "No sender configured" : parts.joined(separator: " ")
     }
-    
+
     var effectiveSource: SettingScope? {
         if layers.user.name != nil || layers.user.email != nil || layers.user.phone != nil {
             return .user
         }
-        if layers.organization.name != nil || layers.organization.email != nil || layers.organization.phone != nil {
+        if layers.organization.name != nil || layers.organization.email != nil
+            || layers.organization.phone != nil
+        {
             return .organization
         }
         if layers.global.name != nil || layers.global.email != nil || layers.global.phone != nil {
             return .global
         }
-        if layers.environment.name != nil || layers.environment.email != nil || layers.environment.phone != nil {
+        if layers.environment.name != nil || layers.environment.email != nil
+            || layers.environment.phone != nil
+        {
             return nil  // Environment fallback
         }
         return nil
@@ -604,20 +680,23 @@ extension Message {
     static let preview = Message(
         id: "preview-message-id",
         organizationId: "preview-org-id",
-        senderId: "preview-sender-id",
-        subject: "Preview Message",
+        title: "Preview Message",
         content: "This is a preview message for testing purposes.",
-        messageType: .personal,
-        priority: .normal,
-        channel: .email,
-        templateId: nil,
-        recipients: [MessageRecipient.preview],
-        scheduledAt: nil,
-        sentAt: Date(),
+        messageType: .email,
         status: .sent,
-        metadata: [:],
-        createdAt: Date(),
-        updatedAt: Date()
+        scheduledFor: nil,
+        sentAt: "2025-11-18T00:00:00Z",
+        senderName: "Demo User",
+        senderEmail: "demo@caresphere.com",
+        senderPhone: nil,
+        templateId: nil,
+        createdBy: "preview-user-id",
+        recipientCount: 10,
+        openedCount: 5,
+        clickedCount: 2,
+        failedCount: 0,
+        createdAt: "2025-11-18T00:00:00Z",
+        updatedAt: "2025-11-18T00:00:00Z"
     )
 }
 
@@ -646,28 +725,20 @@ extension MessageRecipient {
 extension MessageTemplate {
     static let preview = MessageTemplate(
         id: "preview-template-id",
-        organizationId: "preview-org-id",
-        name: "Welcome Message",
+        name: "Welcome to {{organizationName}}",
         description: "Welcome message for new members",
+        templateType: "EMAIL",
         category: .welcome,
-        subject: "Welcome to CareSphere",
-        content: "Welcome {{firstName}}! We're excited to have you join our community.",
-        placeholders: [
-            TemplatePlaceholder(
-                name: "firstName",
-                displayName: "First Name",
-                type: .text,
-                isRequired: true,
-                defaultValue: nil,
-                description: "Member's first name"
-            )
-        ],
-        supportedChannels: [.email, .sms],
+        subject: "Welcome to {{organizationName}}!",
+        content:
+            "Dear {{firstName}},\n\nWelcome to {{organizationName}}! We're so glad you're here. Our community is a place of faith, growth, and genuine care for one another.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBlessings,\n{{senderName}}",
+        variables: "[\"firstName\",\"organizationName\",\"senderName\"]",
+        thumbnailUrl: nil,
         isActive: true,
         usageCount: 5,
         createdBy: "preview-user-id",
-        createdAt: Date(),
-        updatedAt: Date()
+        createdAt: "2025-11-18T00:00:00Z",
+        updatedAt: "2025-11-18T00:00:00Z"
     )
 }
 
@@ -713,5 +784,3 @@ extension SenderSetting {
         updatedAt: Date()
     )
 }
-
-

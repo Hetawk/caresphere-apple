@@ -21,8 +21,6 @@ struct SignUpView: View {
     @State private var verificationCode = ""
     @State private var infoMessage = ""
     @State private var showingInfo = false
-    @State private var infoMessage = ""
-    @State private var showingInfo = false
 
     var body: some View {
         ZStack {

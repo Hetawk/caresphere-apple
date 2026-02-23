@@ -16,7 +16,6 @@ struct MessageComposerView: View {
     @State private var subject: String = ""
     @State private var content: String = ""
     @State private var selectedMembers: Set<String> = []
-    @State private var priority: MessagePriority = .normal
     @State private var showingTemplateSelector = false
     @State private var showingMemberSelector = false
     @State private var showTemplateSection = false
@@ -24,8 +23,16 @@ struct MessageComposerView: View {
     @State private var showError = false
     @State private var errorMessage = ""
 
-    init(selectedTemplate: MessageTemplate? = nil) {
+    init(
+        selectedTemplate: MessageTemplate? = nil,
+        initialSubject: String = "",
+        initialContent: String = "",
+        initialMemberIds: Set<String> = []
+    ) {
         self.selectedTemplate = selectedTemplate
+        self._subject = State(initialValue: initialSubject)
+        self._content = State(initialValue: initialContent)
+        self._selectedMembers = State(initialValue: initialMemberIds)
     }
 
     var body: some View {
@@ -167,8 +174,7 @@ struct MessageComposerView: View {
             HStack(spacing: CareSphereSpacing.sm) {
                 channelButton(.email, icon: "envelope.fill", label: "Email")
                 channelButton(.sms, icon: "message.fill", label: "SMS")
-                channelButton(
-                    .whatsapp, icon: "bubble.left.and.bubble.right.fill", label: "WhatsApp")
+                channelButton(.push, icon: "bell.fill", label: "Push")
             }
         }
         .padding(.horizontal, 2)
@@ -326,7 +332,6 @@ struct MessageComposerView: View {
                 subject: selectedChannel == .email ? subject : nil,
                 content: content,
                 channel: selectedChannel,
-                priority: priority,
                 templateId: templateId
             )
 

@@ -5,29 +5,29 @@ struct MainAppView: View {
     @EnvironmentObject private var theme: CareSphereTheme
     @EnvironmentObject private var authService: AuthenticationService
     @EnvironmentObject private var settingsService: SenderSettingsService
-    
+
     var body: some View {
         TabView {
             DashboardView()
                 .tabItem {
                     TabItemView(icon: "house", text: "Dashboard")
                 }
-            
+
             MembersView()
                 .tabItem {
                     TabItemView(icon: "person.2", text: "Members")
                 }
-            
+
             MessagesView()
                 .tabItem {
                     TabItemView(icon: "envelope", text: "Messages")
                 }
-            
+
             AnalyticsView()
                 .tabItem {
                     TabItemView(icon: "chart.bar", text: "Analytics")
                 }
-            
+
             AppSettingsView()
                 .tabItem {
                     TabItemView(icon: "gear", text: "Settings")
@@ -72,7 +72,7 @@ struct MainAppView: View {
 struct TabItemView: View {
     let icon: String
     let text: String
-    
+
     var body: some View {
         VStack {
             Image(systemName: icon)
@@ -86,4 +86,8 @@ struct TabItemView: View {
         .environmentObject(CareSphereTheme.shared)
         .environmentObject(AuthenticationService.shared)
         .environmentObject(SenderSettingsService.shared)
+        .environmentObject(MemberService.shared)
+        .environmentObject(MessageService.shared)
+        .environmentObject(AnalyticsService.shared)
+        .environmentObject(BirthdayService.shared)
 }

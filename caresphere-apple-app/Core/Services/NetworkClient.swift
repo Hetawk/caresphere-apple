@@ -12,9 +12,10 @@ struct APIConfiguration {
 
     static let shared: APIConfiguration = {
         // Read API_BASE_URL from environment (.env file)
+        // NOTE: Must include /api prefix since all Next.js routes live under /api/
         let apiURLString =
-            Env.string("API_BASE_URL", default: "https://caresphere.ekddigital.com")
-            ?? "https://caresphere.ekddigital.com"
+            Env.string("API_BASE_URL", default: "https://caresphere.ekddigital.com/api")
+            ?? "https://caresphere.ekddigital.com/api"
         guard let url = URL(string: apiURLString) else {
             fatalError("Invalid API_BASE_URL in environment: \(apiURLString)")
         }
@@ -148,8 +149,21 @@ class NetworkClient: ObservableObject {
         self.session = URLSession(configuration: config)
 
         // Configure JSON decoder with date formatting
+        // Support Prisma ISO 8601 timestamps with or without fractional seconds
         self.decoder = JSONDecoder()
-        self.decoder.dateDecodingStrategy = .iso8601
+        let iso8601Full = ISO8601DateFormatter()
+        iso8601Full.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let iso8601Basic = ISO8601DateFormatter()
+        iso8601Basic.formatOptions = [.withInternetDateTime]
+        self.decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let string = try container.decode(String.self)
+            if let date = iso8601Full.date(from: string) { return date }
+            if let date = iso8601Basic.date(from: string) { return date }
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Invalid ISO 8601 date: \(string)")
+        }
 
         self.encoder = JSONEncoder()
         self.encoder.dateEncodingStrategy = .iso8601
@@ -465,14 +479,14 @@ enum Endpoints {
             switch self {
             case .login: return "/auth/login"
             case .register: return "/auth/register"
-            case .registerWithOrganization: return "/auth/register-with-organization"
-            case .sendVerificationCode: return "/auth/send-verification-code"
+            case .registerWithOrganization: return "/auth/register-org"
+            case .sendVerificationCode: return "/auth/resend-verification"
             case .refresh: return "/auth/refresh"
             case .logout: return "/auth/logout"
             case .profile: return "/auth/profile"
-            case .changePassword: return "/auth/change-password"
-            case .forgotPassword: return "/auth/forgot-password"
-            case .resetPassword: return "/auth/reset-password"
+            case .changePassword: return "/auth/password"
+            case .forgotPassword: return "/auth/password/forgot"
+            case .resetPassword: return "/auth/password/reset"
             case .verifyEmail: return "/auth/verify-email"
             }
         }
@@ -481,16 +495,20 @@ enum Endpoints {
     // Organizations
     enum Organizations: APIEndpoint {
         case myOrganization
+        case allOrganizations
         case create
         case join
+        case switchOrg
         case regenerateCode
 
         var path: String {
             switch self {
-            case .myOrganization: return "/organizations/my-organization"
-            case .create: return "/organizations/create"
-            case .join: return "/organizations/join"
-            case .regenerateCode: return "/organizations/regenerate-code"
+            case .myOrganization: return "/orgs/me"
+            case .allOrganizations: return "/orgs/all"
+            case .create: return "/orgs"
+            case .join: return "/orgs/join"
+            case .switchOrg: return "/orgs/switch"
+            case .regenerateCode: return "/orgs/code"
             }
         }
     }
@@ -513,7 +531,7 @@ enum Endpoints {
             case .get(let id): return "/members/\(id)"
             case .update(let id): return "/members/\(id)"
             case .delete(let id): return "/members/\(id)"
-            case .search: return "/members/search"
+            case .search: return "/members"  // use ?search= query param
             case .notes(let memberId): return "/members/\(memberId)/notes"
             case .activities(let memberId): return "/members/\(memberId)/activities"
             }
@@ -523,14 +541,14 @@ enum Endpoints {
     // Messages
     enum Messages: APIEndpoint {
         case list
-        case send  // Direct send (POST /messages/send)
+        case send  // Create/send message (POST /messages)
         case get(id: String)
         case delete(id: String)
 
         var path: String {
             switch self {
             case .list: return "/messages"
-            case .send: return "/messages/send"  // Updated to match backend
+            case .send: return "/messages"  // same endpoint, POST method
             case .get(let id): return "/messages/\(id)"
             case .delete(let id): return "/messages/\(id)"
             }
@@ -568,14 +586,14 @@ enum Endpoints {
 
         var path: String {
             switch self {
-            case .rules: return "/automation/rules"
-            case .createRule: return "/automation/rules"
-            case .getRule(let id): return "/automation/rules/\(id)"
-            case .updateRule(let id): return "/automation/rules/\(id)"
-            case .deleteRule(let id): return "/automation/rules/\(id)"
+            case .rules: return "/automation"
+            case .createRule: return "/automation"
+            case .getRule(let id): return "/automation/\(id)"
+            case .updateRule(let id): return "/automation/\(id)"
+            case .deleteRule(let id): return "/automation/\(id)"
             case .logs(let ruleId):
-                return ruleId.map { "/automation/rules/\($0)/logs" } ?? "/automation/logs"
-            case .execute(let ruleId): return "/automation/rules/\(ruleId)/execute"
+                return ruleId.map { "/automation/logs?ruleId=\($0)" } ?? "/automation/logs"
+            case .execute(let ruleId): return "/automation/\(ruleId)/execute"
             }
         }
     }
@@ -591,12 +609,12 @@ enum Endpoints {
 
         var path: String {
             switch self {
-            case .dashboard: return "/analytics/dashboard"
-            case .members: return "/analytics/members"
-            case .messages: return "/analytics/messages"
-            case .automation: return "/analytics/automation"
-            case .engagement: return "/analytics/engagement"
-            case .reports: return "/analytics/reports"
+            case .dashboard: return "/analytics"
+            case .members: return "/analytics"
+            case .messages: return "/analytics"
+            case .automation: return "/analytics"
+            case .engagement: return "/analytics"
+            case .reports: return "/analytics"
             }
         }
     }
@@ -612,7 +630,7 @@ enum Endpoints {
         var path: String {
             switch self {
             case .senderResolved:
-                return "/settings/senders/resolved"
+                return "/settings/senders?resolved=true"
             case .senderList(let scope, let referenceId):
                 var path = "/settings/senders"
                 var params: [String] = []
@@ -642,7 +660,7 @@ enum Endpoints {
 
         var path: String {
             switch self {
-            case .importMembers: return "/bulk/members/import"
+            case .importMembers: return "/members/import"
             }
         }
     }
@@ -680,6 +698,19 @@ enum Endpoints {
                 return "/fields/entities/values"
             case .initializeMembers:
                 return "/fields/initialize/members"
+            }
+        }
+    }
+
+    // Birthdays
+    enum Birthdays: APIEndpoint {
+        case upcoming(days: Int)
+        case generateMessage
+
+        var path: String {
+            switch self {
+            case .upcoming(let days): return "/birthdays/upcoming?days=\(days)"
+            case .generateMessage: return "/birthdays/message"
             }
         }
     }

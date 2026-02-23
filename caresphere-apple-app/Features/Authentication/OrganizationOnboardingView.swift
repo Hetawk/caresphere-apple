@@ -67,7 +67,7 @@ struct OrganizationOnboardingView: View {
                     OptionCard(
                         icon: "person.2.fill",
                         title: "Join Organization",
-                        description: "Enter a 7-digit code to join an existing organization",
+                        description: "Enter the organization code to join an existing organization",
                         isSelected: selectedOption == .join,
                         action: { selectedOption = .join }
                     )
@@ -82,23 +82,22 @@ struct OrganizationOnboardingView: View {
                             TextField(
                                 "",
                                 text: $organizationCode,
-                                prompt: Text("Enter 7-digit code")
+                                prompt: Text("Enter organization code")
                                     .foregroundColor(theme.colors.onSurface.opacity(0.4))
                             )
                             .textFieldStyle(CareSphereTextFieldStyle())
-                            #if os(iOS)
-                                .keyboardType(.numberPad)
-                            #endif
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
                             .onChange(of: organizationCode) { _, newValue in
-                                // Limit to 7 digits
-                                if newValue.count > 7 {
-                                    organizationCode = String(newValue.prefix(7))
+                                // Limit to 20 characters
+                                if newValue.count > 20 {
+                                    organizationCode = String(newValue.prefix(20))
                                 }
                                 validateCode()
                             }
 
                             if !isValidCode && !organizationCode.isEmpty {
-                                Text("Code must be exactly 7 digits")
+                                Text("Code must be 4-20 alphanumeric characters")
                                     .font(CareSphereTypography.bodySmall)
                                     .foregroundColor(theme.colors.error)
                             }
@@ -148,16 +147,18 @@ struct OrganizationOnboardingView: View {
         case .create:
             return !organizationName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .join:
-            return isValidCode && organizationCode.count == 7
+            return isValidCode && organizationCode.count >= 4
         case .skip:
             return true
         }
     }
 
     private func validateCode() {
+        let code = organizationCode
         isValidCode =
-            organizationCode.isEmpty
-            || (organizationCode.count == 7 && organizationCode.allSatisfy { $0.isNumber })
+            code.isEmpty
+            || (code.count >= 4 && code.count <= 20
+                && code.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" })
     }
 
     private func handleContinue() {

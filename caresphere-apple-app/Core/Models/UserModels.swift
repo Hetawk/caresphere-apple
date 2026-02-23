@@ -7,11 +7,6 @@ struct UserOrganizationRole: Codable, Identifiable, Equatable {
     let id: String
     let name: String
     let displayName: String
-
-    enum CodingKeys: String, CodingKey {
-        case id, name
-        case displayName = "display_name"
-    }
 }
 
 /// Basic organization information for user display
@@ -20,11 +15,6 @@ struct UserOrganizationInfo: Codable, Identifiable, Equatable {
     let name: String
     let slug: String
     let isActive: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case id, name, slug
-        case isActive = "is_active"
-    }
 }
 
 /// User's membership in an organization
@@ -35,62 +25,46 @@ struct UserOrganizationMembership: Codable, Identifiable, Equatable {
     let isOwner: Bool
     let isActive: Bool
     let joinedAt: String?
-
-    enum CodingKeys: String, CodingKey {
-        case organization, role
-        case isOwner = "is_owner"
-        case isActive = "is_active"
-        case joinedAt = "joined_at"
-    }
 }
 
 /// User model representing authenticated users in the system
 struct User: Codable, Identifiable, Equatable {
     let id: String
     let email: String
-    let fullName: String
-    let displayName: String?
-    let avatarUrl: String?
+    let firstName: String
+    let lastName: String?
+    let phone: String?
     let role: UserRole
     let status: UserStatus
-    let emailVerified: Bool
+    let createdAt: String?
     let lastLoginAt: String?
-    let createdAt: String
-    let updatedAt: String
-    let organizations: [UserOrganizationMembership]
 
-    enum CodingKeys: String, CodingKey {
-        case id, email, role, status, organizations
-        case fullName = "full_name"
-        case displayName = "display_name"
-        case avatarUrl = "avatar_url"
-        case emailVerified = "email_verified"
-        case lastLoginAt = "last_login_at"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
+    // Computed properties for UI compatibility
+    var fullName: String {
+        [firstName, lastName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
     }
 
-    // Computed properties for backward compatibility
-    var firstName: String {
-        let components = fullName.split(separator: " ")
-        return components.first.map(String.init) ?? fullName
+    var displayName: String {
+        fullName.isEmpty ? email : fullName
     }
 
-    var lastName: String {
-        let components = fullName.split(separator: " ")
-        return components.count > 1 ? components.dropFirst().joined(separator: " ") : ""
-    }
+    var effectiveDisplayName: String { displayName }
+    var avatarUrl: String? { nil }
+    var emailVerified: Bool { status == .active }
+    var updatedAt: String? { nil }
+    var organizations: [UserOrganizationMembership] { [] }
 
-    var effectiveDisplayName: String {
-        return displayName ?? fullName
+    var initials: String {
+        let parts = fullName.split(separator: " ").prefix(2)
+        return parts.map { String($0.prefix(1)).uppercased() }.joined()
     }
 }
 
 /// User status enumeration
 enum UserStatus: String, Codable, CaseIterable {
-    case active = "active"
-    case inactive = "inactive"
-    case suspended = "suspended"
+    case active = "ACTIVE"
+    case inactive = "INACTIVE"
+    case suspended = "SUSPENDED"
 
     var displayName: String {
         switch self {
@@ -106,14 +80,17 @@ enum UserStatus: String, Codable, CaseIterable {
 
 /// User roles with associated permissions
 enum UserRole: String, Codable, CaseIterable {
-    case superAdmin = "super_admin"
-    case admin = "admin"
-    case ministryLeader = "ministry_leader"
-    case volunteer = "volunteer"
-    case member = "member"
+    case kingdomSuperAdmin = "KINGDOM_SUPER_ADMIN"
+    case superAdmin = "SUPER_ADMIN"
+    case admin = "ADMIN"
+    case ministryLeader = "MINISTRY_LEADER"
+    case volunteer = "VOLUNTEER"
+    case member = "MEMBER"
 
     var displayName: String {
         switch self {
+        case .kingdomSuperAdmin:
+            return "Kingdom Super Admin"
         case .superAdmin:
             return "Super Admin"
         case .admin:
@@ -129,6 +106,8 @@ enum UserRole: String, Codable, CaseIterable {
 
     var permissions: UserPermissions {
         switch self {
+        case .kingdomSuperAdmin:
+            return UserPermissions.all
         case .superAdmin:
             return UserPermissions.all
         case .admin:
@@ -224,33 +203,47 @@ struct UserPermissions: Codable, Equatable {
 
 // MARK: - Organization Models
 
-/// Organization/tenant model for multi-tenant support
+/// Organization type from Prisma schema
+enum OrganizationType: String, Codable, CaseIterable {
+    case church = "CHURCH"
+    case nonprofit = "NONPROFIT"
+    case other = "OTHER"
+
+    var displayName: String {
+        switch self {
+        case .church: return "Church / Faith-based"
+        case .nonprofit: return "Non-profit"
+        case .other: return "Other"
+        }
+    }
+}
+
+/// Organization/tenant model — matches Prisma Organization model (camelCase API response)
 struct Organization: Codable, Identifiable, Equatable {
     let id: String
     let name: String
-    let slug: String  // Unique identifier for URLs
+    let slug: String
+    let organizationCode: String?
+    let organizationType: OrganizationType?
+    let domain: String?
     let description: String?
-    let logoURL: String?
+    let logoUrl: String?
     let website: String?
-    let primaryColor: String?
-    let secondaryColor: String?
-    let organizationCode: String?  // 7-digit code for joining (visible to admins only)
-    let settings: OrganizationSettings
-    let subscription: SubscriptionPlan
-    let isActive: Bool
-    let createdAt: Date
-    let updatedAt: Date
+    let phone: String?
+    let address: String?
+    let city: String?
+    let state: String?
+    let country: String?
+    let timezone: String?
+    let bibleEnabled: Bool?
+    let isActive: Bool?
+    let createdAt: String?
+    let updatedAt: String?
 
-    enum CodingKeys: String, CodingKey {
-        case id, name, slug, description, website, settings, subscription
-        case logoURL = "logo_url"
-        case primaryColor = "primary_color"
-        case secondaryColor = "secondary_color"
-        case organizationCode = "organization_code"
-        case isActive = "is_active"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-    }
+    // Backward compat helpers for UI
+    var logoURL: String? { logoUrl }
+    var primaryColor: String? { nil }
+    var secondaryColor: String? { nil }
 }
 
 /// Organization creation request
@@ -259,13 +252,35 @@ struct CreateOrganizationRequest: Codable {
     let description: String?
 }
 
-/// Join organization request with 7-digit code
-struct JoinOrganizationRequest: Codable {
-    let organizationCode: String
+/// Membership info embedded in OrganizationWithMembership
+struct OrgMembershipInfo: Codable, Equatable {
+    let isOwner: Bool
+    let roleName: String
+    let roleDisplayName: String
+    let joinedAt: String?
+}
 
-    enum CodingKeys: String, CodingKey {
-        case organizationCode = "organization_code"
-    }
+/// Organization with the current user's membership info — returned by GET /orgs/all
+struct OrganizationWithMembership: Codable, Identifiable, Equatable {
+    let id: String
+    let name: String
+    let slug: String
+    let organizationCode: String?
+    let organizationType: OrganizationType?
+    let domain: String?
+    let description: String?
+    let logoUrl: String?
+    let website: String?
+    let phone: String?
+    let isActive: Bool?
+    let membership: OrgMembershipInfo
+
+    var logoURL: String? { logoUrl }
+}
+
+/// Join organization request — API /orgs/join expects { code: String }
+struct JoinOrganizationRequest: Codable {
+    let code: String
 }
 
 /// Organization onboarding option
@@ -390,29 +405,24 @@ struct LoginResponse: Codable {
 struct RegisterRequest: Codable {
     let email: String
     let password: String
-    let fullName: String
-    let displayName: String?
+    let firstName: String
+    let lastName: String
+    let code: String  // Email verification OTP
+    let phone: String?
 }
 
 /// Registration request with organization onboarding
+/// Matches /api/auth/register-org schema
 struct RegisterWithOrganizationRequest: Codable {
     let email: String
     let password: String
-    let fullName: String
-    let displayName: String?
-    let action: OrganizationOption
+    let firstName: String
+    let lastName: String
+    let code: String  // Email verification OTP
+    let phone: String?
+    let organizationAction: String  // "create" or "join"
     let organizationName: String?
     let organizationCode: String?
-    let verificationCode: String
-
-    enum CodingKeys: String, CodingKey {
-        case email, password, action
-        case fullName = "full_name"
-        case displayName = "display_name"
-        case organizationName = "organization_name"
-        case organizationCode = "organization_code"
-        case verificationCode = "verification_code"
-    }
 }
 
 struct SendVerificationCodeRequest: Codable {
@@ -493,32 +503,12 @@ extension User {
     static let preview = User(
         id: "preview-user-id",
         email: "demo@caresphere.com",
-        fullName: "Demo User",
-        displayName: "Demo",
-        avatarUrl: nil,
+        firstName: "Demo",
+        lastName: "User",
+        phone: nil,
         role: .admin,
         status: .active,
-        emailVerified: true,
-        lastLoginAt: nil,
-        createdAt: "2025-11-18T00:00:00",
-        updatedAt: "2025-11-18T00:00:00",
-        organizations: [
-            UserOrganizationMembership(
-                organization: UserOrganizationInfo(
-                    id: "org-1",
-                    name: "Demo Church",
-                    slug: "demo-church",
-                    isActive: true
-                ),
-                role: UserOrganizationRole(
-                    id: "role-1",
-                    name: "admin",
-                    displayName: "Admin"
-                ),
-                isOwner: true,
-                isActive: true,
-                joinedAt: "2025-11-18T00:00:00"
-            )
-        ]
+        createdAt: "2025-11-18T00:00:00Z",
+        lastLoginAt: nil
     )
 }

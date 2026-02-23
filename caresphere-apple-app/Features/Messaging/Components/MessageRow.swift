@@ -65,9 +65,8 @@ struct MessageRow: View {
         case .sent: return .success
         case .failed: return .error
         case .scheduled: return .primary
-        case .sending: return .warning
+        case .pending: return .warning
         case .draft: return .secondary
-        case .cancelled: return .secondary
         }
     }
 }
